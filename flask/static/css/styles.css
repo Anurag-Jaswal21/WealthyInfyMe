@@ -1,0 +1,203 @@
+body {
+    background-color: white;
+}
+
+/*Nav Bar section*/
+
+.custom-navbar {
+  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent dark background */
+  transition: background-color 0.4s ease, box-shadow 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(2px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.custom-navbar:hover,
+.custom-navbar.scrolled {
+  background-color: rgba(0,0,0,0.3);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Nav links and brand default */
+.custom-navbar .nav-link,
+.custom-navbar .navbar-brand {
+  color: white;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0);
+  transition: color 0.3s ease, text-shadow 0.3s ease, background-color 0.3s ease;
+}
+
+/* On hover: change link color */
+.custom-navbar .nav-link:hover {
+  color: #ffc107 !important; /* Bootstrap warning yellow */
+  background-color: rgba(0,0,0,0); /* Soft background highlight */
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  text-decoration: underline;
+}
+
+/* When navbar is scrolled or hovered: revert to dark text */
+.custom-navbar:hover .nav-link,
+.custom-navbar.scrolled .nav-link,
+.custom-navbar:hover .navbar-brand,
+.custom-navbar.scrolled .navbar-brand {
+  color: #FFFFFF !important;
+  text-shadow: none;
+}
+
+/* Add hover effect for links in light mode too */
+.custom-navbar.scrolled .nav-link:hover {
+  color: #0a58ca !important;
+  background-color: rgba(13, 110, 253, 0.1);
+  text-decoration: underline;
+  background-color: rgba(0,0,0,0);
+}
+
+
+
+
+
+/*Hero section*/
+
+.hero-section {
+  position: relative;
+  color: white;
+  text-align: center;
+  padding: 120px 0;
+  min-height: 400px;
+  overflow: hidden;
+}
+
+.hero-section img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -2;
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4); /* Dark overlay */
+  z-index: -1;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* Base card size */
+.card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Scale the card on hover */
+.card:hover {
+  transform: scale(1.05); /* Slightly enlarge the card */
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); /* Add a shadow on hover */
+}
+
+/* Optional: You can set a smaller card size on smaller screens */
+.card {
+  width: 100%;
+  max-width: 350px; /* Smaller card size */
+  margin: 0 auto;
+}
+.cardtest{
+  width: 100%;
+  max-width: 550px; /* Smaller card size */
+  margin: 0 auto;
+}
+
+/* Card base style */
+.card.card-with-bg {
+  height: 250px; /* Fixed height for all cards */
+  background-size: cover;
+  background-position: center;
+  color: white;
+  display: flex;
+  align-items: end;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+} 
+
+/* Card on hover */
+.card.card-with-bg:hover {
+  height: 250px;
+  transform: scale(1.05);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Optional: Dark overlay for better text visibility */
+.card.card-with-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(0px); /* Start with no blur */
+  transition: backdrop-filter 0.4s ease, background 0.4s ease;
+  z-index: 1;
+}
+
+.card.card-with-bg:hover::before {
+  backdrop-filter: blur(6px); /* Add blur effect */
+  background: rgba(0, 0, 0, 0.4); /* Darken a little more */
+}
+
+
+
+/* Content on top of overlay */
+.card.card-with-bg .card-body {
+  position: relative;
+  z-index: 2;
+}
+
+.card.card-with-bg .card-body {
+  position: relative;
+  z-index: 2;
+}
+
+
+/* Initially hide paragraph text */
+.card.card-with-bg .card-text {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.4s ease, max-height 0.4s ease;
+}
+
+/* Show paragraph text on hover */
+.card.card-with-bg:hover .card-text {
+  opacity: 1;
+  max-height: 200px; /* enough to show full content */
+}
+
+
+footer {
+    background-color: #046f49; /* matches your green branding */
+    color: white;
+    padding: 20px 0;
+}
+
+footer a {
+    color: white;
+    text-decoration: none;
+    margin: 0 10px;
+}
+
+footer a:hover {
+    text-decoration: underline;
+}
