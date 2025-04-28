@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bootstrap Registration Form</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #c5c6bc;
+    }
+    .box-area {
+      border-radius: 15px;
+    }
+    .bg-primary {
+      background-color: #4e73df;
+    }
+    .bg-success img {
+      max-width: 100%;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container d-flex justify-content-center align-items-center min-vh-100">
+  <div class="row border rounded-5 p-3 bg-white shadow box-area" style="width: 100%; max-width: 800px;">
+    
+    <!-- Left Side (Info) -->
+    <div class="col-md-6 d-flex flex-column justify-content-center align-items-center text-white bg-success rounded-4 ">
+        <img src="/static/images/registration.gif" alt="Welcome Image">
+
+      <h2 class="mb-4 text-center">Create Your Account on WealthyInfyMe</h2>
+<p class="text-center mt-3">Join WealthyInfyMe today for smarter financial solutions and more.</p>
+
+    </div>
+
+    <!-- Right Side (Form) -->
+    <div class="col-md-6 p-5">
+      <h2 class="mb-4 text-center">Create Account</h2>
+      
+      <form>
+        <div class="mb-3">
+          <label for="name" class="form-label">Name</label>
+          <input type="text" class="form-control" id="name" placeholder="Enter your name" required>
+        </div>
+
+        <div class="mb-3">
+          <label for="email" class="form-label">Email address</label>
+          <input type="email" class="form-control" id="email" placeholder="Enter your email" required>
+        </div>
+
+        <div class="mb-3">
+          <label for="password" class="form-label">Password</label>
+          <input type="password" class="form-control" id="password" placeholder="Enter your password" required>
+        </div>
+
+        <div class="mb-3">
+          <label for="confirmPassword" class="form-label">Confirm Password</label>
+          <input type="password" class="form-control" id="confirmPassword" placeholder="Retype your password" required>
+        </div>
+
+        <div class="mb-3 form-check">
+          <input type="checkbox" class="form-check-input" id="terms" required>
+          <label class="form-check-label" for="terms">I agree to the terms and conditions</label>
+        </div>
+
+        <div class="d-grid">
+          <button type="submit" class="btn btn-primary">Register</button>
+        </div>
+      </form>
+
+      <p class="text-center mt-3">
+        Already have an account? <a href="{{ url_for('login') }}">Sign in</a>
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

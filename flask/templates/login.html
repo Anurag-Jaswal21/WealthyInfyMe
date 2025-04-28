@@ -8,7 +8,6 @@
   <style>
     body {
       background-color: #82c48d;
-
     }
     
     .card-custom {
@@ -44,11 +43,21 @@
         <img src="/static/images/login.jpg" class="img-fluid w-100 h-100" alt="Visual" style="object-fit: cover;">
       </div>
       
-
       <!-- Right Side Form -->
       <div class="col-md-6 p-5 text-dark">
         <h2 class="fw-bold mb-4">Log in to your account</h2>
         <p class="text-muted mb-4">Capture your moments with us.</p>
+
+        <!-- Display the error message if any -->
+        {% if msg=='unsuccessful' %}
+        <div class="alert alert-danger" role="alert">
+          {{ 'Invalid Credential. Try Again!!!' }}
+        </div>
+        {% elif msg=="successful" %}
+        <div class="alert alert-success" role="alert">
+          {{'Login successfully.'}}
+        </div>
+        {% endif %}
 
         <form method="POST">
           {{ form.hidden_tag() }}
@@ -71,12 +80,10 @@
           {{ form.submit(class="btn btn-dark w-100 py-2") }}
         </form>
 
+        <!-- Register Button -->
         <div class="text-center mt-4">
-          <p class="small">Or sign in with</p>
-          <div class="d-flex justify-content-center gap-3">
-            <button class="btn btn-outline-dark">Google</button>
-            <button class="btn btn-outline-dark">Apple</button>
-          </div>
+          <p class="small">Don't have an account?</p>
+          <a href="{{ url_for('register') }}" class="btn btn-outline-dark w-100 py-2">Register Here</a>
         </div>
 
       </div>
