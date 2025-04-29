@@ -3,7 +3,7 @@ from flask import Flask, render_template, redirect, url_for
 from forms import LoginForm,RegistrationForm
 from config import Config
 from db import mysql  # Import mysql from db.py
-from services import check_user
+from services import check_user,registration
 
 
 from flask_mysqldb import MySQL
@@ -43,6 +43,7 @@ def login():
 
 @app.route('/register', methods=["GET", "POST"])
 def register():
+    msg=''
     form = RegistrationForm()
     if form.validate_on_submit():
         # Get data from the form
@@ -52,14 +53,15 @@ def register():
         confirm_password = form.confirm_password.data
 
         # Insert user data into MySQL database
-        cursor = mysql.connection.cursor()
-        cursor.execute("INSERT INTO registration (name, email, password) VALUES (%s, %s, %s)", (name, email, password))
-        mysql.connection.commit()
-        cursor.close()
+        res = registration(name, email, password, confirm_password)
+        if res:
+            return redirect(url_for('login'))
+        else:
+            msg="incorrect"
+        
 
-        return redirect(url_for('login'))
+    return render_template("registration.html", form=form,msg=msg)
 
-    return render_template("registration.html", form=form)  
 
 if __name__ == '__main__':
     app.run(debug=True)
