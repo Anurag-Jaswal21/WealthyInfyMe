@@ -13,3 +13,14 @@ def check_user(email, password):
         return True
     return False
 
+def registration(name,email,password,confirm_password):
+    if(password==confirm_password):
+        con=mysql.connect
+        cur=con.cursor()
+        cur.execute("insert into registration(name,email,password) values(%s,%s,%s)",(name,email,password))
+        con.commit()
+        cur.close()
+        con.close()
+        return True
+    else:
+        return False
