@@ -127,20 +127,24 @@
         <form action="/login" method="POST" autocomplete="off">
           {{ res.hidden_tag() }}
 
+          <!-- User Role Selection -->
           {{ res.userrole(class_="select") }}<br><br>
 
+          <!-- Email Field -->
           {{ res.email.label }}<br>
           {{ res.email(class_="datafield", placeholder="User Name") }}<br>
           {% for error in res.email.errors %}
             <span style="color:blue">{{ error }}</span><br>
           {% endfor %}
 
+          <!-- Password Field -->
           {{ res.password.label }}<br>
           {{ res.password(class_="datafield", placeholder="Password") }}<br>
           {% for error in res.password.errors %}
             <span style="color:blue">{{ error }}</span><br>
           {% endfor %}
 
+          <!-- Submit Button -->
           {{ res.submit(class_="button") }}
 
           <div class="link">
