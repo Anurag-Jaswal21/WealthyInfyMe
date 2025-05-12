@@ -8,6 +8,10 @@ from pymongo import MongoClient
 from datetime import datetime
 import urllib.parse
 from flask import session
+from datetime import timedelta
+
+
+
 
 from flask_mysqldb import MySQL
 
@@ -45,6 +49,7 @@ from flask import session
 def login():
     msg = session.get('msg', '')  # Retrieve the message from session if it exists
     form = LoginForm()
+    app.permanent_session_lifetime = timedelta(minutes=30)
     
     if form.validate_on_submit():
         email = form.email.data
