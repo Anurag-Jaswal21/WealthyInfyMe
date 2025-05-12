@@ -150,8 +150,8 @@ def login():
                 flash("Admin login successful")
                 return render_template("message.html")
 
-    session.pop('msg', None)
-    return render_template("login.html", res=form, msg=msg)
+    session.pop('msg',None)
+    return render_template("login.html", res=form,message=msg)
 
 @app.route('/booking', methods=['GET', 'POST'])
 def booking():
@@ -179,6 +179,10 @@ def logout():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+
+
+
 
 
 
