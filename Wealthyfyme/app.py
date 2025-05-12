@@ -7,11 +7,13 @@ from services import check_user,registration
 from pymongo import MongoClient
 from datetime import datetime
 import urllib.parse
+from flask import session
 
 from flask_mysqldb import MySQL
 
 
 app = Flask(__name__)
+
 app.config.from_object(Config)
 
 mysql=MySQL(app)  # Initialize MySQL with app     
@@ -35,21 +37,52 @@ CATEGORIES = [
 def home():
     return render_template("index.html")
 
+from flask import session
+
+from flask import session
 
 @app.route('/login', methods=["GET", "POST"])
 def login():
-    msg = ""
+    msg = session.get('msg', '')  # Retrieve the message from session if it exists
     form = LoginForm()
+    
     if form.validate_on_submit():
         email = form.email.data
         password = form.password.data
         res = check_user(email, password)
+        
         if res:
             return redirect(url_for('dashboard'))
         else:
-            msg = "unsuccessful"
-
+            session['msg'] = "unsuccessful"  # Set the error message in session
+            return redirect(url_for('login'))  # Redirect to avoid re-posting form data
+    
+    # Clear the message from session on GET request
+    session.pop('msg', None)  
+    
     return render_template("login.html", form=form, msg=msg)  # Pass msg to the template
+
+
+
+
+# @app.route('/login', methods=["GET", "POST"])
+# def login():
+#     msg = ""
+#     form = LoginForm()
+#     if form.validate_on_submit():
+#         email = form.email.data
+#         password = form.password.data
+#         res = check_user(email, password)
+#         if res:
+#             return redirect(url_for('dashboard'))
+#         else:
+#             msg = "unsuccessful"
+        
+#         form.email.data = ""
+#         form.password.data = ""
+#         form.remember.data = False
+
+#     return render_template("login.html", form=form, msg=msg)  # Pass msg to the template
 
 
 @app.route('/register', methods=["GET", "POST"])
@@ -72,7 +105,6 @@ def register():
         
 
     return render_template("registration.html", form=form,msg=msg)
-
 
 @app.route('/dashboard')
 def dashboard():
