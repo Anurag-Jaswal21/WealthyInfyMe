@@ -1,0 +1,34 @@
+db.transactions.insertMany([
+  {
+    "_id": ObjectId("6823248ac7aadc5828cfdbb8"),
+    "amount": 500,
+    "category": "Transportation",
+    "description": "Taxi fare",
+    "date": new ISODate("2025-05-10T00:00:00Z"),
+    "type": "expense"
+  },
+  {
+    "_id": ObjectId("6823248ac7aadc5828cfdbba"),
+    "amount": 1200.5,
+    "category": "Food",
+    "description": "Groceries",
+    "date": new ISODate("2025-05-01T00:00:00Z"),
+    "type": "income"
+  },
+  {
+    "_id": ObjectId("6823248ac7aadc5828cfdbbb"),
+    "amount": 350,
+    "category": "Transportation",
+    "description": "Uber ride",
+    "date": new ISODate("2025-05-02T00:00:00Z"),
+    "type": "expense"
+  },
+  {
+    "_id": ObjectId("6823248ac7aadc5828cfdbbc"),
+    "amount": 450,
+    "category": "Entertainment",
+    "description": "Movie night",
+    "date": new ISODate("2025-05-03T00:00:00Z"),
+    "type": "income"
+  }
+]);
