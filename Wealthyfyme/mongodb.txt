@@ -1,34 +1,37 @@
 db.transactions.insertMany([
   {
-    "_id": ObjectId("6823248ac7aadc5828cfdbb8"),
-    "amount": 500,
-    "category": "Transportation",
-    "description": "Taxi fare",
-    "date": new ISODate("2025-05-10T00:00:00Z"),
-    "type": "expense"
-  },
-  {
-    "_id": ObjectId("6823248ac7aadc5828cfdbba"),
-    "amount": 1200.5,
+    "_id": ObjectId("6824c34373ff9405d384ccd8"),
+    "amount": 100,
     "category": "Food",
-    "description": "Groceries",
-    "date": new ISODate("2025-05-01T00:00:00Z"),
-    "type": "income"
-  },
-  {
-    "_id": ObjectId("6823248ac7aadc5828cfdbbb"),
-    "amount": 350,
-    "category": "Transportation",
-    "description": "Uber ride",
-    "date": new ISODate("2025-05-02T00:00:00Z"),
+    "description": "Mess",
     "type": "expense"
   },
   {
-    "_id": ObjectId("6823248ac7aadc5828cfdbbc"),
-    "amount": 450,
-    "category": "Entertainment",
-    "description": "Movie night",
-    "date": new ISODate("2025-05-03T00:00:00Z"),
+    "_id": ObjectId("6824c36573ff9405d384ccd9"),
+    "amount": 100,
+    "category": "Mess",
+    "description": "Mess",
+    "type": "expense"
+  },
+  {
+    "_id": ObjectId("6824c7d073ff9405d384ccda"),
+    "amount": 100,
+    "category": "Friend",
+    "description": "Loan",
     "type": "income"
+  },
+  {
+    "_id": ObjectId("6824d71bac409e2df969ee2c"),
+    "amount": 1500,
+    "category": "Entertainment",
+    "description": "Movies",
+    "type": "income"
+  },
+  {
+    "_id": ObjectId("6824e111e77895959d1b6ac3"),
+    "amount": 100,
+    "category": "Food",
+    "description": "Mess",
+    "type": "expense"
   }
 ]);
