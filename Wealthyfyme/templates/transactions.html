@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Transactions</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+  {% extends "dashboard.html" %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="mb-4 text-success">Transaction Page</h2>
+
+  <!-- Add Transaction Form -->
+<form method="POST" class="row g-3 mb-4">
+  <div class="col-md-2">
+    <input type="number" step="0.01" class="form-control" name="amount" placeholder="Amount" required>
+  </div>
+  <div class="col-md-2">
+    <input type="text" class="form-control" name="category" placeholder="Category" required>
+  </div>
+  <div class="col-md-2">
+    <input type="text" class="form-control" name="description" placeholder="Description">
+  </div>
+  <div class="col-md-2">
+    <input type="date" class="form-control" name="date" required>
+  </div>
+  <div class="col-md-2">
+    <select class="form-select" name="type" required>
+      <option value="" disabled selected>Type</option>
+      <option value="income">Income</option>
+      <option value="expense">Expense</option>
+    </select>
+  </div>
+  <div class="col-md-2">
+    <button type="submit" class="btn btn-success w-100">Add</button>
+  </div>
+</form>
+
+
+  <!-- Transactions Table -->
+  <table class="table table-bordered table-hover">
+    <thead class="table-dark">
+      <tr>
+        <th>Date</th>
+        <th>Category</th>
+        <th>Description</th>
+        <th>Amount (₹)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for txn in transactions %}
+      <tr>
+        <td>{{ txn.date }}</td>
+        <td>{{ txn.category }}</td>
+        <td>{{ txn.description }}</td>
+        <td class="{% if txn.type == 'expense' %}text-danger{% elif txn.type == 'income' %}text-success{% endif %}">
+          ₹{{ '%.2f'|format(txn.amount) }}
+        </td>
+
+
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="4" class="text-center text-muted">No transactions found</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
