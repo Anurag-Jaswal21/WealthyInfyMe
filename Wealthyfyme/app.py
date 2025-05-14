@@ -8,26 +8,21 @@ from pymongo import MongoClient
 from datetime import datetime
 import urllib.parse
 from flask import session
-from datetime import timedelta
-
-
+from datetime import datetime,timedelta
+from sqlalchemy import desc
 
 
 from flask_mysqldb import MySQL
 
 
 app = Flask(__name__)
-
 app.config.from_object(Config)
 
 mysql=MySQL(app)  # Initialize MySQL with app     
 
 # MongoDB Configuration
-username = urllib.parse.quote_plus("anurag1049be21")
-password = urllib.parse.quote_plus("Bruno@9988")
-mongo_uri = f"mongodb+srv://{username}:{password}@mongoclustert.qb8fbj8.mongodb.net/?retryWrites=true&w=majority&appName=MongoClustert"
 
-mongo_client = MongoClient(mongo_uri)
+mongo_client = MongoClient('mongodb://localhost:27017/')
 mongo_db = mongo_client["wealthyfyme"]
 mongo_transactions = mongo_db["transactions"]
 
@@ -49,7 +44,6 @@ from flask import session
 def login():
     msg = session.get('msg', '')  # Retrieve the message from session if it exists
     form = LoginForm()
-    app.permanent_session_lifetime = timedelta(minutes=30)
     
     if form.validate_on_submit():
         email = form.email.data
@@ -63,6 +57,7 @@ def login():
             return redirect(url_for('login'))  # Redirect to avoid re-posting form data
     
     # Clear the message from session on GET request
+    
     session.pop('msg', None)  
     
     return render_template("login.html", form=form, msg=msg)  # Pass msg to the template
@@ -89,32 +84,64 @@ def login():
 
 #     return render_template("login.html", form=form, msg=msg)  # Pass msg to the template
 
+from flask import session
 
 @app.route('/register', methods=["GET", "POST"])
 def register():
-    msg=''
-    form = RegistrationForm()
-    if form.validate_on_submit():
-        # Get data from the form
-        name = form.name.data
-        email = form.email.data
-        password = form.password.data
-        confirm_password = form.confirm_password.data
+    if request.method == "POST":
+        form = RegistrationForm()
+        if form.validate_on_submit():
+            name = form.name.data
+            email = form.email.data
+            password = form.password.data
+            confirm_password = form.confirm_password.data
 
-        # Insert user data into MySQL database
-        res = registration(name, email, password, confirm_password)
-        if res:
-            return redirect(url_for('login'))
+            res = registration(name, email, password, confirm_password)
+            if res:
+                return redirect(url_for('login'))
+            else:
+                session['msg'] = "Please, Enter a Valid Email !!!"
+                return redirect(url_for('register'))  # Redirect clears POST data
         else:
-            msg="Please, Enter Validate Mail !!!"
+            # If form has errors, store them in session to show after redirect
+            session['form_errors'] = form.errors
+            return redirect(url_for('register'))
+
+    # GET request - render a fresh form with no data
+    msg = session.pop('msg', '')
+    form_errors = session.pop('form_errors', {})
+    form = RegistrationForm()  # New form, fresh fields
+    return render_template("registration.html", form=form, msg=msg, form_errors=form_errors)
+
+
+
+
+
+# @app.route('/register', methods=["GET", "POST"])
+# def register():
+#     msg=''
+#     form = RegistrationForm()
+#     if form.validate_on_submit():
+#         # Get data from the form
+#         name = form.name.data
+#         email = form.email.data
+#         password = form.password.data
+#         confirm_password = form.confirm_password.data
+
+#         # Insert user data into MySQL database
+#         res = registration(name, email, password, confirm_password)
+#         if res:
+#             return redirect(url_for('login'))
+#         else:
+#             msg="Please, Enter Validate Mail !!!"
         
 
-    return render_template("registration.html", form=form,msg=msg)
+#     return render_template("registration.html", form=form,msg=msg)
 
 @app.route('/dashboard')
 def dashboard():
     # Fetch transactions from MongoDB
-    mongo_transactions_list = mongo_transactions.find().sort("date", -1)
+    mongo_transactions_list = mongo_transactions.find().sort("date", -1).limit(8)
 
     transactions = []
     for txn in mongo_transactions_list:
@@ -149,6 +176,113 @@ def dashboard():
     )
 
 
+
+@app.route('/dashboard_home')
+def dashboard_home():
+    current_date = datetime(2025, 5, 1)
+
+    monthly_income = 0
+    monthly_expenses = 0
+    total_balance = 0
+
+    # Get current month range
+    start_date = current_date.replace(day=1)
+    end_date = (start_date + timedelta(days=31)).replace(day=1)
+
+    # Get transactions of the current month
+    transactions = mongo_transactions.find({
+        'date': {'$gte': start_date.strftime('%Y-%m-%d'), '$lt': end_date.strftime('%Y-%m-%d')}
+    })
+
+    # For expenses by category
+    category_expenses = {}
+
+    for txn in transactions:
+        txn_type = txn.get('type', '').lower()
+        amount = txn.get('amount', 0)
+        if txn_type == 'income':
+            monthly_income += amount
+        elif txn_type == 'expense':
+            monthly_expenses += amount
+            category = txn.get('category', 'Uncategorized')
+            category_expenses[category] = category_expenses.get(category, 0) + amount
+
+    total_balance = monthly_income - monthly_expenses
+
+    # Prepare sorted categories for display
+    sorted_categories = sorted(
+        [(cat, abs(amt)) for cat, amt in category_expenses.items()],
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+    # Get data for monthly summary chart (last 6 months)
+    monthly_summary = []
+    for i in range(6, 0, -1):
+        month_start = (current_date - timedelta(days=30*i)).replace(day=1)
+        month_end = (month_start + timedelta(days=31)).replace(day=1)
+        
+        month_txns = mongo_transactions.find({
+            'date': {'$gte': month_start.strftime('%Y-%m-%d'), '$lt': month_end.strftime('%Y-%m-%d')}
+        })
+        
+        month_income = 0
+        month_expenses = 0
+        
+        for txn in month_txns:
+            txn_type = txn.get('type', '').lower()
+            amount = txn.get('amount', 0)
+            if txn_type == 'income':
+                month_income += amount
+            elif txn_type == 'expense':
+                month_expenses += amount
+        
+        monthly_summary.append({
+            'month': month_start.strftime('%b %Y'),
+            'income': month_income,
+            'expenses': abs(month_expenses),  # Use absolute value for chart
+            'savings': month_income - abs(month_expenses)
+        })
+
+    # Fetch recent transactions
+    recent_transactions = mongo_transactions.find().sort('date', -1).limit(5)
+    formatted_recent = []
+
+    for txn in recent_transactions:
+        try:
+            txn_date = datetime.strptime(txn.get('date', ''), '%Y-%m-%d')
+        except Exception:
+            txn_date = datetime.min
+
+        formatted_recent.append({
+            'date': txn_date,
+            'category': txn.get('category', ''),
+            'description': txn.get('description', ''),
+            'amount': txn.get('amount', 0),
+            'type': txn.get('type', '')
+        })
+
+    return render_template("dashboard_home.html",
+                           total_balance=total_balance,
+                           monthly_income=monthly_income,
+                           monthly_expenses=monthly_expenses,
+                           recent_transactions=formatted_recent,
+                           sorted_categories=sorted_categories,
+                           monthly_data={
+                               'labels': [m['month'] for m in monthly_summary],
+                               'income': [m['income'] for m in monthly_summary],
+                               'expenses': [m['expenses'] for m in monthly_summary],
+                               'savings': [m['savings'] for m in monthly_summary]
+                           },
+                           category_data={
+                               'labels': [cat[0] for cat in sorted_categories],
+                               'data': [cat[1] for cat in sorted_categories]
+                           })
+
+
+
+
+
 @app.route("/transactions", methods=["GET", "POST"])
 def transactions():
     if request.method == "POST":
@@ -156,13 +290,14 @@ def transactions():
         category = request.form["category"]
         description = request.form["description"]
         date = request.form["date"]
+        txn_type = request.form.get("type", "expense")  # default to expense
 
-        # Save only in MongoDB
         mongo_transactions.insert_one({
             "amount": amount,
             "category": category,
             "description": description,
-            "date": date  # stored as string
+            "date": date,
+            "type": txn_type
         })
 
         return redirect("/transactions")
@@ -182,7 +317,8 @@ def transactions():
             "date": parsed_date,
             "category": txn.get("category", "No Category"),
             "description": txn.get("description", "No description"),
-            "amount": txn.get("amount", 0.0)
+            "amount": txn.get("amount", 0.0),
+            "type": txn.get("type", "expense")  # <-- Include type here
         })
 
     # Sort by parsed date
