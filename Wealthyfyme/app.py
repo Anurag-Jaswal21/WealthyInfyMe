@@ -51,7 +51,7 @@ def login():
         res = check_user(email, password)
         
         if res:
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('dashboard_home'))
         else:
             session['msg'] = "unsuccessful"  # Set the error message in session
             return redirect(url_for('login'))  # Redirect to avoid re-posting form data
@@ -326,17 +326,109 @@ def transactions():
 
     return render_template("transactions.html", transactions=transactions)
 
+@app.route('/budgets')
+def budgets():
+    # Get all budgets from MongoDB
+    budgets_data = list(mongo_db.budgets.find())
 
-@app.route('/delete/<int:expense_id>', methods=['POST'])
-def delete_expense(expense_id):
-    con = mysql.connection
-    cur = con.cursor()
-    cur.execute("DELETE FROM transactions WHERE id = %s", (expense_id,))
-    con.commit()
-    cur.close()
+    # Aggregate expenses grouped by category
+    pipeline = [
+        {"$match": {"type": "expense"}},
+        {"$group": {"_id": "$category", "total_spent": {"$sum": "$amount"}}}
+    ]
+    expense_sums = list(mongo_db.transactions.aggregate(pipeline))
+    spent_map = {e['_id']: e['total_spent'] for e in expense_sums}
 
-    mongo_transactions.delete_one({"_id": expense_id})
-    return redirect('/')
+    # Combine budgets with actual spent sums & compute progress
+    for b in budgets_data:
+        category = b['category']
+        limit = b.get('limit', 0)
+        spent = spent_map.get(category, 0)
+        b['spent'] = spent
+        b['progress'] = (spent / limit) * 100 if limit > 0 else 0
+
+    return render_template('budgets.html', budgets=budgets_data)
+
+
+from flask import request, redirect, url_for, flash
+
+@app.route('/add-budget', methods=['POST'])
+def add_budget():
+    category = request.form.get('category')
+    limit = float(request.form.get('limit'))
+
+    if not category or limit <= 0:
+        flash("Invalid budget input!", "danger")
+        return redirect(url_for('budgets'))
+
+    # Optional: prevent duplicates
+    existing = mongo_db.budgets.find_one({"category": category})
+    if existing:
+        flash(f"Budget for '{category}' already exists.", "warning")
+        return redirect(url_for('budgets'))
+
+    # Insert into MongoDB
+    mongo_db.budgets.insert_one({
+        "category": category,
+        "limit": limit,
+    })
+
+    flash(f"Budget for '{category}' added!", "success")
+    return redirect(url_for('budgets'))
+
+from bson.objectid import ObjectId
+
+@app.route('/edit-budget/<budget_id>', methods=['POST'])
+def edit_budget(budget_id):
+    category = request.form.get('category')
+    limit = float(request.form.get('limit'))
+    mongo_db.budgets.update_one(
+        {"_id": ObjectId(budget_id)},
+        {"$set": {"category": category, "limit": limit}}
+    )
+    flash("Budget updated.", "success")
+    return redirect(url_for('budgets'))
+
+
+
+@app.route('/delete-budget/<budget_id>', methods=['POST'])
+def delete_budget(budget_id):
+    mongo_db.budgets.delete_one({"_id": ObjectId(budget_id)})
+    flash("Budget deleted.", "info")
+    return redirect(url_for('budgets')) 
+
+
+@app.route('/alerts')
+def alerts():
+    # Get all budgets from MongoDB
+    budgets_data = list(mongo_db.budgets.find())
+
+    # Aggregate expenses grouped by category
+    pipeline = [
+        {"$match": {"type": "expense"}},
+        {"$group": {"_id": "$category", "total_spent": {"$sum": "$amount"}}}
+    ]
+    expense_sums = list(mongo_transactions.aggregate(pipeline))
+    spent_map = {e['_id']: e['total_spent'] for e in expense_sums}
+
+    # Build alert data
+    alerts = []
+    for b in budgets_data:
+        category = b['category']
+        limit = b.get('limit', 0)
+        spent = spent_map.get(category, 0)
+        percentage = (spent / limit) * 100 if limit > 0 else 0
+
+        if percentage >= 90:
+            alerts.append({
+                'category': category,
+                'limit': limit,
+                'spent': spent,
+                'percentage': round(percentage, 2)
+            })
+
+    return render_template('alerts.html', alerts=alerts)
+
 
 
 
