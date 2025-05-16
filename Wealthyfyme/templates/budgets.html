@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Budgets</title>
+
+    <style>
+
+        .card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            
+        }
+
+        .card:hover {
+            transform: scale(1.03);
+            box-shadow: 0 6px 20px rgba(193, 44, 44, 0.15);
+        }
+
+
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+
+    <style>
+        .progress {
+            background-color: #e9ecef;
+            border-radius: 0.25rem;
+            overflow: hidden;
+        }
+
+        .progress-bar.yellow {
+            background-color: #ffc107; /* Bootstrap warning yellow */
+        }
+        
+        .bg-lightgreen {
+            background-color: #8fbc8f !important;  /* Soft green */
+            color: #fff; /* white text for contrast */
+        }
+
+    </style>
+</head>
+<body>
+{% extends "dashboard.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="mb-4">Budget Overview</h1>
+  <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addBudgetModal">
+    + Add Budget
+  </button>
+</div>
+
+<hr class="my-3">
+
+<!-- Modal -->
+<div class="modal fade" id="addBudgetModal" tabindex="-1" aria-labelledby="addBudgetModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form method="POST" action="/add-budget" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addBudgetModalLabel">Add New Budget</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="category" class="form-label">Category</label>
+          <input type="text" name="category" class="form-control" id="category" required>
+        </div>
+        <div class="mb-3">
+          <label for="limit" class="form-label">Limit (₹)</label>
+          <input type="number" name="limit" step="0.01" class="form-control" id="limit" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-success">Add Budget</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<div class="container">
+  <div class="row">
+    {% for b in budgets %}
+    <!-- Edit Modal -->
+<div class="modal fade" id="editModal{{ b._id }}" tabindex="-1" aria-labelledby="editModalLabel{{ b._id }}" aria-hidden="true">
+  <div class="modal-dialog">
+    <form method="POST" action="/edit-budget/{{ b._id }}" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editModalLabel{{ b._id }}">Edit Budget</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="category{{ b._id }}" class="form-label">Category</label>
+          <input type="text" name="category" class="form-control" id="category{{ b._id }}" value="{{ b.category }}" required>
+        </div>
+        <div class="mb-3">
+          <label for="limit{{ b._id }}" class="form-label">Limit (₹)</label>
+          <input type="number" step="0.01" name="limit" class="form-control" id="limit{{ b._id }}" value="{{ b.limit }}" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-success">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+    <div class="col-md-4 mb-4">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+  <h5 class="mb-0">{{ b.category }}</h5>
+  <div>
+    <!-- Edit Button -->
+    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal{{ b._id }}">
+      Edit
+    </button>
+    <!-- Delete Button -->
+    <form action="/delete-budget/{{ b._id }}" method="POST" style="display:inline;" onsubmit="return confirm('Delete this budget?');">
+      <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+    </form>
+  </div>
+</div>
+
+          <p class="card-text mb-1">Spent: ₹{{ b.spent }} / ₹{{ b.limit }}</p>
+          <p class="card-text mb-3">Remaining: ₹{{ b.limit - b.spent }}</p>
+
+          <div class="progress mb-2" style="height: 20px;">
+            <div 
+              class="progress-bar
+                {% if b.progress <= 50 %}
+                  bg-success
+                {% elif b.progress <= 80 %}
+                  bg-lightgreen
+                {% elif b.progress < 100 %}
+                  bg-warning
+                {% else %}
+                  bg-danger
+                {% endif %}"
+              role="progressbar" 
+              style="width: {{ b.progress }}%;" 
+              aria-valuenow="{{ b.progress }}" 
+              aria-valuemin="0" 
+              aria-valuemax="100"
+            >
+              {{ "%.2f"|format(b.progress) }}%
+            </div>
+          </div>
+
+          {% if b.spent <= b.limit %}
+            <span class="badge bg-success">On track</span>
+          {% else %}
+            <span class="badge bg-danger">Over budget!</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+
+</body>
+</html>
