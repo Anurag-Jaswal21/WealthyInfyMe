@@ -1,100 +1,129 @@
+<title>Dashboard</title>
+<style>
+  .card:hover {
+    transform: scale(1.03);
+    background-color: #f8f9fa;
+    transition: transform 0.3s ease, background-color 0.5s ease;
+  }
 
-  <title>Dashboard</title> 
-  <style>
-    .card:hover {
-      transform: scale(1.03);
-      background-color: #9da6a135; /* green hover */
-      transition: transform 0.3s ease, background-color 0.5s ease;
-    }
+  .summary-card {
+    transition: transform 0.3s ease, background-color 0.3s ease;
+    border-left: 4px solid transparent;
+  }
 
-    .summary-card:hover {
-      transform: scale(1.03);
-      background-color: rgb(22, 116, 34); /* green hover */
-      transition: transform 0.3s ease, background-color 0.5s ease;
-    }
+  .summary-card:hover {
+    transform: scale(1.03);
+    transition: transform 0.3s ease, background-color 0.5s ease;
+  }
 
-    .summary-card {
-      transition: transform 0.3s ease, background-color 0.3s ease;
-    }
+  .balance-card {
+    border-left-color: #28a745;
+  }
+  .balance-card:hover {
+    background-color: rgba(40, 167, 70, 0.2);
+  }
 
-    .summary-card:hover h3,
-    .summary-card:hover h6,
-    .summary-card:hover p,
-    .summary-card:hover ion-icon {
-      color: white !important;
-    }
-  </style>
+  .income-card {
+    border-left-color: #007bff;
+  }
+  .income-card:hover {
+    background-color: rgba(0, 123, 255, 0.197);
+  }
+
+  .expense-card {
+    border-left-color: #dc3545;
+  }
+  .expense-card:hover {
+    background-color: rgba(244, 12, 35, 0.221);
+  }
+
+  .logout:hover {
+    background-color: rgb(137, 25, 25);
+    color: white !important;
+  }
+
+  .chart-container {
+    position: relative;
+    height: 300px;
+  }
+</style>
 </head>
 
 <body>
 {% extends "dashboard.html" %}
 
-{% block title %}Dashboard - WealthifyMe{% endblock %}
+{% block title %}Dashboard - Spend Smart{% endblock %}
 
 {% block content %}
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="mb-0">Dashboard</h1>
-  </div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="mb-0 text-success">Dashboard</h1>
+  <a class="logout text-danger" href="{{ url_for('logout') }}">
+    <ion-icon name="log-out-outline"></ion-icon>
+    Logout
+  </a>
+</div>
 
-  <!-- Cards Section -->
-  <div class="row mb-4">
-    <!-- Total Balance Card -->
-    <div class="col-md-4">
-      <div class="card border-0 shadow-sm h-100 summary-card">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h6 class="card-title text-muted mb-0">Total Balance</h6>
-            <ion-icon name="wallet-outline" class="text-success"></ion-icon>
-          </div>
-          <h3 class="card-text">₹{{ "%.2f"|format(total_balance) }}</h3>
-          <p class="text-success small mb-0"><ion-icon name="trending-up-outline"></ion-icon>🎉 Bravo! Great saving!</p>
+<!-- Cards Section -->
+<div class="row mb-4">
+  <!-- Total Balance -->
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100 summary-card balance-card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="card-title text-muted mb-0">Total Balance</h6>
+          <ion-icon name="wallet-outline" class="text-success"></ion-icon>
         </div>
-      </div>
-    </div>
-
-    <!-- Monthly Income Card -->
-    <div class="col-md-4">
-      <div class="card border-0 shadow-sm h-100 summary-card">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h6 class="card-title text-muted mb-0">Monthly Income</h6>
-            <ion-icon name="arrow-down-circle-outline" class="text-primary"></ion-icon>
-          </div>
-          <h3 class="card-text">₹{{ "%.2f"|format(monthly_income) }}</h3>
-          <p class="text-success small mb-0"><ion-icon name="trending-up-outline"></ion-icon> 👌 Keep it up! You're doing good.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Monthly Expenses Card -->
-    <div class="col-md-4">
-      <div class="card border-0 shadow-sm h-100 summary-card">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h6 class="card-title text-muted mb-0">Monthly Expenses</h6>
-            <ion-icon name="arrow-up-circle-outline" class="text-danger"></ion-icon>
-          </div>
-          <h3 class="card-text">₹{{ "%.2f"|format(monthly_expenses) }}</h3>
-          <p class="text-danger small mb-0"><ion-icon name="trending-down-outline"></ion-icon> Spend carefully!!!</p>
-        </div>
+        <h3 class="card-text">₹{{ "{:,.2f}".format(total_balance) }}</h3>
+        <p class="text-success small mb-0"><ion-icon name="trending-up-outline"></ion-icon> {{ " 🎉 Bravo! Great saving!" if total_balance >= 0 else "Watch your spending!" }}</p>
       </div>
     </div>
   </div>
 
-  <!-- Charts Section -->
-  <div class="row">
-    <div class="col-lg-8">
-      <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body">
-          <h5 class="card-title">Chart</h5>
-          <canvas id="monthlyChart" height="300" class="mb-4"></canvas>
+  <!-- Monthly Income -->
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100 summary-card income-card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="card-title text-muted mb-0">Monthly Income</h6>
+          <ion-icon name="arrow-down-circle-outline" class="text-primary"></ion-icon>
+        </div>
+        <h3 class="card-text">₹{{ "{:,.2f}".format(monthly_income) }}</h3>
+        <p class="text-primary small mb-0"><ion-icon name="trending-up-outline"></ion-icon> {{ "Good income!" if monthly_income > 0 else "No income recorded" }}</p>
+      </div>
+    </div>
+  </div>
 
+  <!-- Monthly Expenses -->
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100 summary-card expense-card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="card-title text-muted mb-0">Monthly Expenses</h6>
+          <ion-icon name="arrow-up-circle-outline" class="text-danger"></ion-icon>
+        </div>
+        <h3 class="card-text">₹{{ "{:,.2f}".format(monthly_expenses) }}</h3>
+        <p class="text-danger small mb-0"><ion-icon name="trending-down-outline"></ion-icon> {{ "High expenses!" if monthly_expenses > (monthly_income * 0.7) else "Good control!" }}</p>
+      </div>
+    </div>
+  </div>
+</div>
 
-          
+<!-- Charts Section -->
+<div class="row">
+  <!-- Bar Chart -->
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <h5 class="card-title">6-Month Financial Summary</h5>
+        <div class="chart-container">
+          <canvas id="monthlyChart"></canvas>
         </div>
       </div>
     </div>
-    <div class="col-lg-4">
+  </div>
+
+  <!-- Expenses by Category -->
+  <div class="col-lg-4">
       <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
           <h5 class="card-title">Expenses by Category</h5>
@@ -113,155 +142,130 @@
     </div>
   </div>
 
-  <!-- Recent Transactions -->
-  <div class="card border-0 shadow-sm" >
-    <div class="card-body">
-      <div class="d-flex justify-content-between align-items-center mb-3" >
-        <h5 class="card-title mb-0">Recent Transactions</h5>
-        <a href="{{ url_for('transactions') }}" class="btn btn-sm btn-outline-success">View All</a>
-      </div>
-      <div class="table-responsive" >
-        <table class="table table-hover" >
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Description</th>
-              <th>Category</th>
-              <th class="text-end">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for transaction in recent_transactions %}
+<!-- Recent Transactions -->
+<div class="card border-0 shadow-sm">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="card-title mb-0">Recent Transactions</h5>
+      <a href="{{ url_for('transactions') }}" class="btn btn-sm btn-outline-success">View All</a>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Category</th>
+            <th class="text-end">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for transaction in recent_transactions %}
             <tr>
               <td>{{ transaction.date.strftime('%b %d') }}</td>
               <td>{{ transaction.description }}</td>
               <td><span class="badge bg-light text-dark">{{ transaction.category }}</span></td>
               <td class="text-end {% if transaction.type == 'expense' %}text-danger{% elif transaction.type == 'income' %}text-success{% endif %}">
-                ₹{{ "%.2f"|format(transaction.amount) }}
+                ₹{{ "{:,.2f}".format(transaction.amount) }}
               </td>
             </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
+</div>
 {% endblock %}
+
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     // Monthly Summary Chart (Bar Chart)
-    const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
-    
-    // Get data from Flask template
-    const monthlyData = {{ monthly_data|tojson|safe }};
-    
-    // Debug: Check the data in console
-    console.log("Monthly Data:", monthlyData);
-    
-    // Create the chart
-    const monthlyChart = new Chart(monthlyCtx, {
-      type: 'bar',
-      data: {
-        labels: monthlyData.labels || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-        datasets: [
-          {
-            label: 'Income',
-            data: monthlyData.income || [1000, 1200, 1300, 1400, 1500, 1600],
-            backgroundColor: 'rgba(40, 167, 69, 0.7)', // Green
-            borderColor: 'rgba(40, 167, 69, 1)',
-            borderWidth: 1
-          },
-          {
-            label: 'Expenses',
-            data: monthlyData.expenses || [500, 600, 700, 800, 900, 1000],
-            backgroundColor: 'rgba(220, 53, 69, 0.7)', // Red
-            borderColor: 'rgba(220, 53, 69, 1)',
-            borderWidth: 1
-          },
-          {
-            label: 'Savings',
-            data: monthlyData.savings || [500, 600, 600, 600, 600, 600],
-            backgroundColor: 'rgba(23, 162, 184, 0.7)', // Blue
-            borderColor: 'rgba(23, 162, 184, 1)',
-            borderWidth: 1
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'bottom',
-          },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                return `${context.dataset.label}: ₹${context.raw.toFixed(2)}`;
-
+    const monthlyCtx = document.getElementById('monthlyChart');
+    if (monthlyCtx) {
+      new Chart(monthlyCtx, {
+        type: 'bar',
+        data: {
+          labels: JSON.parse('{{ monthly_data.labels|tojson|safe }}'),
+          datasets: [
+            {
+              label: 'Income',
+              data: JSON.parse('{{ monthly_data.income|tojson|safe }}'),
+              backgroundColor: 'rgba(40, 167, 69, 0.7)'
+            },
+            {
+              label: 'Expenses',
+              data: JSON.parse('{{ monthly_data.expenses|tojson|safe }}'),
+              backgroundColor: 'rgba(220, 53, 69, 0.7)'
+            },
+            {
+              label: 'Savings',
+              data: JSON.parse('{{ monthly_data.savings|tojson|safe }}'),
+              backgroundColor: 'rgba(23, 162, 184, 0.7)'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.dataset.label + ': ₹' + context.raw.toLocaleString('en-IN');
+                }
               }
             }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return '₹' + value;
+          },
+          scales: {
+            y: {
+              ticks: {
+                callback: function(value) {
+                  return '₹' + value.toLocaleString('en-IN');
+                }
               }
             }
           }
         }
-      }
-    });
+      });
+    }
+
+    // Category Chart (Doughnut Chart)
+    const categoryCtx = document.getElementById('categoryChart');
+    if (categoryCtx) {
+      new Chart(categoryCtx, {
+        type: 'doughnut',
+        data: {
+          labels: JSON.parse('{{ category_data.labels|tojson|safe }}'),
+          datasets: [{
+            data: JSON.parse('{{ category_data.data|tojson|safe }}'),
+            backgroundColor: [
+              '#dc3545', '#fd7e14', '#ffc107', '#28a745', '#20c997',
+              '#17a2b8', '#007bff', '#6610f2', '#6c757d', '#e83e8c'
+            ]
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.raw || 0;
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage = Math.round((value / total) * 100);
+                  return `${label}: ₹${value.toLocaleString('en-IN')} (${percentage}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
   });
 </script>
 {% endblock %}
-
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    // Category Chart
-    const ctx = document.getElementById('categoryChart').getContext('2d');
-
-    const categories = {{ sorted_categories|tojson|safe }};
-    const labels = categories.map(item => item[0]);
-    const data = categories.map(item => item[1]);
-
-    const categoryChart = new Chart(ctx, {
-      type: 'doughnut',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Expenses by Category',
-          data: data,
-          backgroundColor: [
-            '#dc3545', '#ffc107', '#28a745', '#007bff', '#6610f2', '#17a2b8',
-            '#fd7e14', '#20c997', '#6c757d'
-          ],
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'bottom',
-          },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                return `${context.label}: ₹${context.raw.toFixed(2)}`;
-              }
-            }
-          }
-        }
-      }
-    });
-  });
-</script>
-
+</body>
+</html>
