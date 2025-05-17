@@ -41,11 +41,12 @@
         <div class="alert alert-danger">{{ msg }}</div>
       {% endif %}
 
-      {% for field, errors in form.errors.items() %}
-        {% for error in errors %}
-          <div class="alert alert-danger">{{ error }}</div>
-        {% endfor %}
+    {% for field, errors in form_errors.items() %}
+      {% for error in errors %}
+        <div class="alert alert-danger">{{ error }}</div>
       {% endfor %}
+    {% endfor %}
+
 
       <form method="POST" action="">
         {{ form.hidden_tag() }}
