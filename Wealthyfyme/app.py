@@ -21,7 +21,7 @@ mongo_db = mongo_client["wealthyfyme"]
 mongo_transactions = mongo_db["transactions"]
 mongo_budgets = mongo_db["budgets"]
 
-CATEGORIES = ["Food", "Housing", "Transportation", "Entertainment", "Shopping", "Utilities", "Healthcare", "Education","Others"]
+CATEGORIES = ["Salary","Food", "Housing", "Transportation", "Entertainment", "Shopping", "Healthcare", "Education","Others"]
 
 
 @app.route('/')
@@ -52,7 +52,6 @@ def login():
 @app.route('/logout')
 def logout():
     session.clear()
-    flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
 
 
