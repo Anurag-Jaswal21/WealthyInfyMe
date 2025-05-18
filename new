@@ -1,57 +1,192 @@
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    msg = session.get('msg', '')  # Retrieve any message from session
-    form = LoginForm()  # Initialize the login form
-    
-    if form.validate_on_submit():  # Check if form is submitted and valid
-        role = form.userrole.data  # Get the role from the form
-        email = form.email.data  # Get email from the form
-        password = form.password.data  # Get password from the form
-        
-        print(f'Form submitted successfully. Role: {role}, Email: {email}')
-        
-        if role == 'user':
-            checkuser = user_login_form(role, email, password)
-            checkadmin = admin_login_form(role, email, password)
-            print(f"user_login return: {checkuser}")
-            
-            # Logic for user login
-            if checkuser == "Incorrect":
-                flash("Invalid credentials or incorrect password. Please try again.")
-                return redirect(url_for('login'))
-            elif checkuser == "No Data":
-                flash("No user found. Please register yourself.")
-                return redirect(url_for("register"))
-            elif checkadmin:
-                flash("Error: Admin cannot log in as a user.")
-                return redirect(url_for("login"))
-            else:
-                session['username'] = checkuser  # Store the username in session
-                print(session['username'])
-                flash("User login successful")
-                return render_template("message.html")
+from flask import Flask, render_template
+import requests
 
-        elif role == 'admin':
-            checkuser = user_login_form(role, email, password)
-            checkadmin = admin_login_form(role, email, password)
-            print(f"admin_login return: {checkadmin}")
-            
-            # Logic for admin login
-            if checkadmin == "Incorrect":
-                flash("Invalid credentials or incorrect password. Please try again.")
-                return redirect(url_for('login'))
-            elif checkadmin == "No Data":
-                flash("No admin found. Please register yourself.")
-                return redirect(url_for("register"))
-            elif checkuser:
-                flash("Error: User cannot log in as admin.")
-                return redirect(url_for('login'))
-            else:
-                session['username'] = checkadmin  # Store the admin username in session
-                print(session['username'])
-                flash("Admin login successful")
-                return render_template("message.html")
-    
-    # Clear the session message if any
-    session.pop('msg', None)
-    return render_template("login.html", form=form, msg=msg)
+app = Flask(__name__)
+
+NEWS_API_KEY = '18b2d45a6c5e4d4bb27faf9448d139b9'
+
+def fetch_news_by_query(query, page_size=12):
+    url = f'https://newsapi.org/v2/everything?q={query}&language=en&pageSize={page_size}&apiKey={NEWS_API_KEY}'
+    response = requests.get(url)
+    data = response.json()
+    if data.get("status") != "ok":
+        print(f"Error fetching {query}: {data}")
+        return []
+    return data.get("articles", [])
+
+@app.route('/')
+def index():
+    topics = ['Mysore', 'India', 'World','Cricket']
+    news_data = {topic: fetch_news_by_query(topic) for topic in topics}
+    return render_template('index.html', news_data=news_data)
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+
+
+
+
+--------------------------------------------
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Random News</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+  <style>
+    body {
+      padding: 20px;
+      background: #fff7e0;
+    }
+    .news-card {
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      transition: 0.3s ease;
+    }
+    .news-card:hover {
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+      transform: translateY(-5px);
+    }
+    .card-header {
+      background-color: #000000c1;
+      color: white;
+      font-weight: bold;
+      padding: 10px;
+      border-radius: 8px 8px 0 0;
+    }
+    .news-item {
+      padding: 10px 15px;
+      border-bottom: 1px solid #ddd;
+    }
+    .news-title {
+        color: black;
+      font-weight: bold;
+      text-decoration: none;
+    }
+    .news-title:hover {
+        color: blue;
+      text-decoration: underline;
+    }
+    .filter-btn {
+      margin: 5px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="text-center mb-4">
+    <h1><ion-icon name="newspaper-outline"></ion-icon> Latest Random News</h1>
+  </div>
+
+  <div class="text-center mb-4">
+    <button class="filter-btn btn btn-outline-dark active" data-topic="all">All Topics</button>
+    {% for topic in news_data.keys() %}
+      <button class="filter-btn btn btn-outline-dark" data-topic="{{ topic|lower|replace(' ', '-') }}">{{ topic }}</button>
+    {% endfor %}
+  </div>
+
+  <div class="row" id="news-container">
+    {% for topic, articles in news_data.items() %}
+      {% set chunks = articles | batch(3, fill_with=None) %}
+      {% for chunk in chunks %}
+      <div class="col-md-4 mb-4 topic-card" data-topic="{{ topic|lower|replace(' ', '-') }}">
+        <div class="news-card">
+          <div class="card-header">
+                {% if topic.lower() == "mysore" %}
+                    🏙️ Mysore
+                {% elif topic.lower() == "india" %}
+                    🇮🇳 India
+                {% elif topic.lower() == "world" %}
+                    🌍 World
+                {% elif topic.lower() == "cricket" %}
+                    🏏 Cricket
+                {% else %}
+                    📰 {{ topic }}
+                {% endif %}
+            </div>
+          <div>
+            {% for article in chunk %}
+              {% if article %}
+              <div class="news-item">
+                <a href="{{ article.url }}" target="_blank" class="news-title ">{{ article.title }}</a><br>
+                <small class="text-muted">{{ article.source.name }}</small>
+              </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% endfor %}
+  </div>
+
+  <div class="text-center mt-3">
+    <button id="show-more-btn" class="btn btn-dark me-2">Show More</button>
+    <button id="show-less-btn" class="btn btn-secondary" style="display:none;">Show Less</button>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const showMoreBtn = document.getElementById('show-more-btn');
+    const showLessBtn = document.getElementById('show-less-btn');
+    const cards = document.querySelectorAll('.topic-card');
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    const initial = 6;
+    let visibleCount = initial;
+    let currentTopic = 'all';
+
+    function showCards() {
+      let shown = 0;
+      cards.forEach(card => {
+        const match = currentTopic === 'all' || card.dataset.topic === currentTopic;
+        if (match && shown < visibleCount) {
+          card.style.display = 'block';
+          shown++;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      const total = Array.from(cards).filter(c => currentTopic === 'all' || c.dataset.topic === currentTopic).length;
+      showMoreBtn.style.display = visibleCount < total ? 'inline-block' : 'none';
+      showLessBtn.style.display = visibleCount > initial ? 'inline-block' : 'none';
+    }
+
+    showMoreBtn.onclick = () => {
+      visibleCount += 6;
+      showCards();
+    };
+
+    showLessBtn.onclick = () => {
+      visibleCount = initial;
+      showCards();
+      document.getElementById('news-container').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    filterBtns.forEach(btn => {
+      btn.onclick = () => {
+        filterBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentTopic = btn.dataset.topic;
+        visibleCount = initial;
+        showCards();
+      };
+    });
+
+    showCards();
+  });
+</script>
+
+</body>
+</html>
