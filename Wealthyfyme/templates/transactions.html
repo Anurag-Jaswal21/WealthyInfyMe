@@ -38,7 +38,7 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="mb-4 text-success">Transactions</h2>
+  <h1 class="mb-4 text-success">Transactions</h1>
 
   <!-- Add Transaction Form -->
 <form method="POST" class="row g-3 mb-4">
@@ -46,8 +46,13 @@
     <input type="number" step="0.01" class="form-control" name="amount" placeholder="Amount" required>
   </div>
   <div class="col-md-2">
-    <input type="text" class="form-control" name="category" placeholder="Category" required>
-  </div>
+  <select class="form-control" name="category" required>
+    <option value="" disabled selected>Select Category</option>
+    {% for category in CATEGORIES %}
+      <option value="{{ category }}">{{ category }}</option>
+    {% endfor %}
+  </select>
+</div>
   <div class="col-md-2">
     <input type="text" class="form-control" name="description" placeholder="Description">
   </div>
