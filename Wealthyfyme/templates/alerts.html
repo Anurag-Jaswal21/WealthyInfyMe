@@ -8,23 +8,15 @@
     {% extends "dashboard.html" %}
     {% block content %}
 
-    <h2 class="mb-4">⚠️ Budget Alerts</h2>
+    <h1 class="mb-4 text-success">⚠️ Budget Alerts</h1>
 
     {% if alerts %}
         {% for alert in alerts %}
-            {% if alert.spent > alert.limit %}
-                <div class="alert alert-danger">
-                    <strong>{{ alert.category }}</strong>: You've spent <strong>{{ alert.spent }}</strong> out of <strong>{{ alert.limit }}</strong>
-                    ({{ "%.2f"|format(alert.percentage) }}%). <br>
-                    <small>🚨 Over budget! Please adjust your spending.</small>
-                </div>
-            {% else %}
-                <div class="alert alert-warning">
-                    <strong>{{ alert.category }}</strong>: You've spent <strong>{{ alert.spent }}</strong> out of <strong>{{ alert.limit }}</strong>
-                    ({{ "%.2f"|format(alert.percentage) }}%). <br>
-                    <small>⚠️ Warning: Over 90% of your budget used!</small>
-                </div>
-            {% endif %}
+            <div class="alert alert-warning">
+                <strong>{{ alert.category }}</strong>: You've spent <strong>{{ alert.spent }}</strong> out of <strong>{{ alert.limit }}</strong> 
+                ({{ alert.percentage }}%). <br>
+                <small>Warning: Over 90% of your budget used!</small>
+            </div>
         {% endfor %}
     {% else %}
         <div class="alert alert-success">
