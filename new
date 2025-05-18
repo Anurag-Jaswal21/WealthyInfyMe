@@ -30,7 +30,33 @@ def index():
 
 if __name__ == "__main__":
     app.run(debug=True)
+------------------------------------------------
 
+
+from flask import Flask, render_template
+import requests
+
+app = Flask(__name__)
+
+NEWS_API_KEY = '18b2d45a6c5e4d4bb27faf9448d139b9'
+
+def fetch_news_by_query(query, page_size=12):
+    url = f'https://newsapi.org/v2/everything?q={query}&language=en&pageSize={page_size}&apiKey={NEWS_API_KEY}'
+    response = requests.get(url)
+    data = response.json()
+    if data.get("status") != "ok":
+        print(f"Error fetching {query}: {data}")
+        return []
+    return data.get("articles", [])
+
+@app.route('/')
+def index():
+    topics = ['Mysore', 'India', 'World','Cricket']
+    news_data = {topic: fetch_news_by_query(topic) for topic in topics}
+    return render_template('index.html', news_data=news_data)
+
+if __name__ == "__main__":
+    app.run(debug=True)
 
 
 --------------------------------------------
