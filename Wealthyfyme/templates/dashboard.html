@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>WealthifyMe</title>
+  <title>Wealthyfyme</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <!-- Bootstrap 5 CSS -->
@@ -65,7 +65,7 @@
   <div class="sidebar d-flex flex-column bg-light border-end">
     <div class="d-flex align-items-center mb-4">
       <ion-icon name="albums-outline" size="large" class="me-2"></ion-icon>
-      <span class="fs-5 fw-bold">Spend Smart</span>
+      <span class="fs-5 fw-bold">Wealthyfyme</span>
     </div>
 
     <nav class="nav flex-column">
@@ -84,7 +84,7 @@
         Financial Goals
       </a>
 
-      <a href="#" class="nav-link d-flex align-items-center text-dark mb-2 {% if request.path == '/' %}active{% endif %}">
+      <a href="{{ url_for('peer_comparison') }}" class="nav-link d-flex align-items-center text-dark mb-2 {% if request.path == '/peer_comparison' %}active{% endif %}">
         <ion-icon name="people-outline" class="me-2"></ion-icon>
         Peer Comparison
       </a>
@@ -94,14 +94,17 @@
         Group Challenges
       </a>
 
-      <a href="{{ url_for('alerts') }}" class="nav-link d-flex align-items-center text-dark mb-2  {% if request.path == '/alerts' %}active{% endif %}">
-        <ion-icon name="notifications-outline" class="text-dark me-2" style="font-size: 20px;"></ion-icon>
-        Alerts
+      <a href="{{ url_for('alerts') }}" class="nav-link d-flex align-items-center text-dark mb-2 {% if request.path == '/alerts' %}active{% endif %}">
+          <ion-icon name="notifications-outline" class="text-dark me-2" style="font-size: 20px;"></ion-icon>
+          Alerts
+          {% if session.alert_count and session.alert_count > 0 %}
+              <span class="ms-2 text-danger fw-bold" style="font-size: 18px;">&#33;</span>
+          {% endif %}
       </a>
     </nav>
 
     <div class="mt-auto sidebar-footer text-muted pt-3 border-top">
-      © 2025 WealthifyMe
+      © 2025 Wealthyfyme
     </div>
   </div>
 
