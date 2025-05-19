@@ -1,0 +1,595 @@
+#app.py
+
+
+from flask import Flask, render_template
+from pymongo import MongoClient
+
+app = Flask(__name__)
+
+# MongoDB connection
+client = MongoClient('mongodb://localhost:27017/')  # Or use your MongoDB Atlas URI
+db = client['news_db']  # Your database name
+collection = db['news_articles']  # Your collection name
+
+def fetch_news_by_topic(topic, limit=12):
+    return list(collection.find({'topic': topic}).sort('publishedAt', -1).limit(limit))
+
+
+@app.route('/')
+def index():
+    topics = ['Mysore', 'India', 'World', 'Cricket',"Pakistan"]
+    news_data = {topic: fetch_news_by_topic(topic) for topic in topics}
+    return render_template('index.html', news_data=news_data)
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+
+---------------------------------------------------
+
+
+
+<!-- index.html -->
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Random News</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+  <style>
+    body {
+      padding: 20px;
+      background: #fff7e0;
+    }
+    .news-card {
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      transition: 0.3s ease;
+    }
+    .news-card:hover {
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+      transform: translateY(-5px);
+    }
+    .card-header {
+      background-color: #000000c1;
+      color: white;
+      font-weight: bold;
+      padding: 10px;
+      border-radius: 8px 8px 0 0;
+    }
+    .news-item {
+      padding: 10px 15px;
+      border-bottom: 1px solid #ddd;
+    }
+    .news-title {
+        color: black;
+      font-weight: bold;
+      text-decoration: none;
+    }
+    .news-title:hover {
+        color: blue;
+      text-decoration: underline;
+    }
+    .filter-btn {
+      margin: 5px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="text-center mb-4">
+    <h1><ion-icon name="newspaper-outline"></ion-icon> Latest Random News</h1>
+  </div>
+
+  <div class="text-center mb-4">
+    <button class="filter-btn btn btn-outline-dark active" data-topic="all">All Topics</button>
+    {% for topic in news_data %}
+      <button class="filter-btn btn btn-outline-dark" data-topic="{{ topic|lower|replace(' ', '-') }}">
+        {{ topic }}
+      </button>
+    {% endfor %}
+  </div>
+
+  <div class="row" id="news-container">
+    {% for topic, articles in news_data.items() %}
+      {% set chunks = articles | batch(3, fill_with=None) %}
+      {% for chunk in chunks %}
+      <div class="col-md-4 mb-4 topic-card" data-topic="{{ topic|lower|replace(' ', '-') }}">
+        <div class="news-card">
+          <div class="card-header">
+            {% if topic.lower() == "mysore" %}
+              🏙️ Mysore
+            {% elif topic.lower() == "india" %}
+              🇮🇳 India
+            {% elif topic.lower() == "world" %}
+              🌍 World
+            {% elif topic.lower() == "cricket" %}
+              🏏 Cricket
+            {% else %}
+              📰 {{ topic }}
+            {% endif %}
+          </div>
+          <div>
+            {% for article in chunk %}
+              {% if article %}
+              <div class="news-item">
+                <a href="{{ article.url }}" target="_blank" class="news-title">{{ article.title }}</a><br>
+                <small class="text-muted">
+                  {% if article.source is defined and article.source.name is defined %}
+                    {{ article.source.name }}
+                  {% elif article.source is defined %}
+                    {{ article.source }}
+                  {% else %}
+                    Unknown Source
+                  {% endif %}
+                 
+                </small>
+                
+              </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    {% endfor %}
+  </div>
+
+  <div class="text-center mt-3">
+    <button id="show-more-btn" class="btn btn-dark me-2">Show More</button>
+    <button id="show-less-btn" class="btn btn-secondary" style="display:none;">Show Less</button>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const showMoreBtn = document.getElementById('show-more-btn');
+    const showLessBtn = document.getElementById('show-less-btn');
+    const cards = document.querySelectorAll('.topic-card');
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    const initial = 6;
+    let visibleCount = initial;
+    let currentTopic = 'all';
+
+    function showCards() {
+      let shown = 0;
+      cards.forEach(card => {
+        const match = currentTopic === 'all' || card.dataset.topic === currentTopic;
+        if (match && shown < visibleCount) {
+          card.style.display = 'block';
+          shown++;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      const total = Array.from(cards).filter(c => currentTopic === 'all' || c.dataset.topic === currentTopic).length;
+      showMoreBtn.style.display = visibleCount < total ? 'inline-block' : 'none';
+      showLessBtn.style.display = visibleCount > initial ? 'inline-block' : 'none';
+    }
+
+    showMoreBtn.onclick = () => {
+      visibleCount += 6;
+      showCards();
+    };
+
+    showLessBtn.onclick = () => {
+      visibleCount = initial;
+      showCards();
+      document.getElementById('news-container').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    filterBtns.forEach(btn => {
+      btn.onclick = () => {
+        filterBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentTopic = btn.dataset.topic;
+        visibleCount = initial;
+        showCards();
+      };
+    });
+
+    showCards();
+  });
+</script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+---------------------------------------------
+
+
+#mongodb
+
+
+from pymongo import MongoClient
+
+# Connect to MongoDB
+client = MongoClient('mongodb://localhost:27017/')
+db = client['news_db']
+collection = db['news_articles']
+
+# Clear old data (optional)
+collection.delete_many({})
+
+# Sample 8 new articles (source as string, no publishedAt)
+new_articles = [
+    {
+        "title": "New Heritage Festival Announced in Mysore",
+        "url": "https://example.com/mysore-festival",
+        "topic": "Mysore",
+        "source": "Mysore Times"
+    },
+    {
+        "title": "Tech Startups in Bangalore Attract Global Investors",
+        "url": "https://example.com/india-startups",
+        "topic": "India",
+        "source": "TechIndia"
+    },
+    {
+        "title": "UN Discusses Climate Change Goals for 2030",
+        "url": "https://example.com/un-climate",
+        "topic": "World",
+        "source": "Global News"
+    },
+    {
+        "title": "Mysore Palace Illuminated for Weekend Show",
+        "url": "https://example.com/mysore-palace",
+        "topic": "Mysore",
+        "source": "South India Journal"
+    },
+    {
+        "title": "India Launches Digital Literacy Drive",
+        "url": "https://example.com/digital-india",
+        "topic": "India",
+        "source": "National Daily"
+    },
+    {
+        "title": "Global Economies Brace for Inflation Challenges",
+        "url": "https://example.com/world-economy",
+        "topic": "World",
+        "source": "The Economic Times"
+    },
+    {
+        "title": "Startup Fest to Be Held in Mysore Tech Park",
+        "url": "https://example.com/mysore-startupfest",
+        "topic": "Mysore",
+        "source": "Innovation South"
+    },
+    {
+        "title": "India's Space Agency Plans New Mars Mission",
+        "url": "https://example.com/india-mars-mission",
+        "topic": "India",
+        "source": "ISRO News"
+    }
+]
+
+collection.insert_many(new_articles)
+
+# Cricket articles related to Pakistan (source as string, no publishedAt)
+cricket_articles = [
+    {
+        "title": "Pakistan Wins ODI Series Against New Zealand",
+        "url": "https://example.com/pak-nz-odi-win",
+        "topic": "Cricket",
+        "source": "CricBuzz Pakistan"
+    },
+    {
+        "title": "Babar Azam Scores Century in Asia Cup Clash",
+        "url": "https://example.com/babar-azam-century",
+        "topic": "Cricket",
+        "source": "ESPNcricinfo"
+    },
+    {
+        "title": "PCB Announces Squad for T20 World Cup",
+        "url": "https://example.com/pcb-t20-squad",
+        "topic": "Cricket",
+        "source": "Geo News"
+    },
+    {
+        "title": "Shaheen Afridi Injured Ahead of England Tour",
+        "url": "https://example.com/shaheen-injury",
+        "topic": "Cricket",
+        "source": "The Express Tribune"
+    },
+    {
+        "title": "Pakistan Women Defeat Bangladesh in Thrilling T20",
+        "url": "https://example.com/pak-women-t20-win",
+        "topic": "Cricket",
+        "source": "Dawn Sports"
+    },
+    {
+        "title": "Lahore Qalandars Clinch PSL Title in Final Over",
+        "url": "https://example.com/lahore-psl-title",
+        "topic": "Cricket",
+        "source": "ARY Sports"
+    }
+]
+
+collection.insert_many(cricket_articles)
+
+# Mysore news articles (source as string, no publishedAt)
+mysore_articles = [
+    {
+        "title": "Mysore Palace to Host Annual Light Show This Weekend",
+        "url": "https://example.com/mysore-palace-light-show",
+        "topic": "Mysore",
+        "source": "Star of Mysore"
+    },
+    {
+        "title": "Chamundi Hill Ropeway Project Gets Green Signal",
+        "url": "https://example.com/chamundi-ropeway-approved",
+        "topic": "Mysore",
+        "source": "The Hindu"
+    }
+]
+
+collection.insert_many(mysore_articles)
+
+# Additional articles with descriptions and images (source as string, no publishedAt)
+additional_articles = [
+    {
+        "title": "Mysore Dasara festival begins",
+        "description": "The famous Mysore Dasara festivities kicked off with grandeur.",
+        "url": "https://example.com/mysore-dasara",
+        "urlToImage": "https://via.placeholder.com/300x180.png?text=Mysore+Dasara",
+        "topic": "Mysore",
+        "source": "Mysore Times"
+    },
+    {
+        "title": "India launches new satellite",
+        "description": "ISRO has successfully launched another communication satellite.",
+        "url": "https://example.com/india-satellite",
+        "urlToImage": "https://via.placeholder.com/300x180.png?text=India+Satellite",
+        "topic": "India",
+        "source": "ISRO News"
+    },
+    {
+        "title": "World economic forum insights",
+        "description": "Global leaders meet to discuss economic strategies.",
+        "url": "https://example.com/world-forum",
+        "urlToImage": "https://via.placeholder.com/300x180.png?text=World+Forum",
+        "topic": "World",
+        "source": "Global News"
+    },
+    {
+        "title": "Pakistan wins cricket match",
+        "description": "Pakistan secures victory in the T20 series.",
+        "url": "https://example.com/pakistan-cricket",
+        "urlToImage": "https://via.placeholder.com/300x180.png?text=Pakistan+Cricket",
+        "topic": "Pakistan",
+        "source": "Geo News"
+    },
+    {
+        "title": "IPL 2025: Exciting final showdown",
+        "description": "The IPL final was a thrilling match between top teams.",
+        "url": "https://example.com/ipl-final",
+        "urlToImage": "https://via.placeholder.com/300x180.png?text=IPL+Final",
+        "topic": "Cricket",
+        "source": "ESPNcricinfo"
+    }
+]
+
+collection.insert_many(additional_articles)
+
+
+
+-------------------------------------------------------
+
+
+from pymongo import MongoClient
+
+# Connect to MongoDB
+client = MongoClient('mongodb://localhost:27017/')
+db = client['news_db']
+collection = db['news_articles']
+
+# Clear old data (optional)
+
+# Mysore news (3 articles)
+mysore_articles = [
+    {
+        "title": "Mysore Palace to Host Annual Light Show This Weekend",
+        "url": "https://example.com/mysore-palace-light-show",
+        "topic": "Mysore",
+        "source": "Star of Mysore"
+    },
+    {
+        "title": "Chamundi Hill Ropeway Project Gets Green Signal",
+        "url": "https://example.com/chamundi-ropeway-approved",
+        "topic": "Mysore",
+        "source": "The Hindu"
+    },
+    {
+        "title": "New Heritage Festival Announced in Mysore",
+        "url": "https://example.com/mysore-festival",
+        "topic": "Mysore",
+        "source": "Mysore Times"
+    }
+]
+
+# India news (5 articles)
+india_articles = [
+    {
+        "title": "Tech Startups in Bangalore Attract Global Investors",
+        "url": "https://example.com/india-startups",
+        "topic": "India",
+        "source": "TechIndia"
+    },
+    {
+        "title": "India Launches Digital Literacy Drive",
+        "url": "https://example.com/digital-india",
+        "topic": "India",
+        "source": "National Daily"
+    },
+    {
+        "title": "India's Space Agency Plans New Mars Mission",
+        "url": "https://example.com/india-mars-mission",
+        "topic": "India",
+        "source": "ISRO News"
+    },
+    {
+        "title": "India launches new satellite",
+        "description": "ISRO has successfully launched another communication satellite.",
+        "url": "https://example.com/india-satellite",
+        "urlToImage": "https://via.placeholder.com/300x180.png?text=India+Satellite",
+        "topic": "India",
+        "source": "ISRO News"
+    },
+    {
+        "title": "India Announces New Renewable Energy Targets",
+        "url": "https://example.com/india-renewable-energy",
+        "topic": "India",
+        "source": "Energy Today"
+    }
+]
+
+# World news (6 articles)
+world_articles = [
+    {
+        "title": "UN Discusses Climate Change Goals for 2030",
+        "url": "https://example.com/un-climate",
+        "topic": "World",
+        "source": "Global News"
+    },
+    {
+        "title": "Global Economies Brace for Inflation Challenges",
+        "url": "https://example.com/world-economy",
+        "topic": "World",
+        "source": "The Economic Times"
+    },
+    {
+        "title": "World economic forum insights",
+        "description": "Global leaders meet to discuss economic strategies.",
+        "url": "https://example.com/world-forum",
+        "urlToImage": "https://via.placeholder.com/300x180.png?text=World+Forum",
+        "topic": "World",
+        "source": "Global News"
+    },
+    {
+        "title": "New Trade Agreements Signed at G20 Summit",
+        "url": "https://example.com/g20-summit-trade",
+        "topic": "World",
+        "source": "International Herald"
+    },
+    {
+        "title": "Breakthrough in Global Vaccine Development",
+        "url": "https://example.com/global-vaccine",
+        "topic": "World",
+        "source": "Health Today"
+    },
+    {
+        "title": "Climate Activists Rally Worldwide",
+        "url": "https://example.com/climate-rally",
+        "topic": "World",
+        "source": "Eco News"
+    }
+]
+
+# Cricket news (2 articles)
+cricket_articles = [
+    {
+        "title": "IPL 2025: Exciting final showdown",
+        "description": "The IPL final was a thrilling match between top teams.",
+        "url": "https://example.com/ipl-final",
+        "urlToImage": "https://via.placeholder.com/300x180.png?text=IPL+Final",
+        "topic": "Cricket",
+        "source": "ESPNcricinfo"
+    },
+    {
+        "title": "Babar Azam Scores Century in Asia Cup Clash",
+        "url": "https://example.com/babar-azam-century",
+        "topic": "Cricket",
+        "source": "ESPNcricinfo"
+    }
+]
+
+# Pakistan news (7 articles)
+pakistan_articles = [
+    {
+        "title": "Pakistan Wins ODI Series Against New Zealand",
+        "url": "https://example.com/pak-nz-odi-win",
+        "topic": "Pakistan",
+        "source": "CricBuzz Pakistan"
+    },
+    {
+        "title": "PCB Announces Squad for T20 World Cup",
+        "url": "https://example.com/pcb-t20-squad",
+        "topic": "Pakistan",
+        "source": "Geo News"
+    },
+    {
+        "title": "Shaheen Afridi Injured Ahead of England Tour",
+        "url": "https://example.com/shaheen-injury",
+        "topic": "Pakistan",
+        "source": "The Express Tribune"
+    },
+    {
+        "title": "Pakistan Women Defeat Bangladesh in Thrilling T20",
+        "url": "https://example.com/pak-women-t20-win",
+        "topic": "Pakistan",
+        "source": "Dawn Sports"
+    },
+    {
+        "title": "Lahore Qalandars Clinch PSL Title in Final Over",
+        "url": "https://example.com/lahore-psl-title",
+        "topic": "Pakistan",
+        "source": "ARY Sports"
+    },
+    {
+        "title": "Pakistan Faces Economic Challenges Amid Global Shifts",
+        "url": "https://example.com/pakistan-economy",
+        "topic": "Pakistan",
+        "source": "Daily Pakistan"
+    },
+    {
+        "title": "New Infrastructure Projects Announced in Karachi",
+        "url": "https://example.com/karachi-infrastructure",
+        "topic": "Pakistan",
+        "source": "Karachi Post"
+    }
+]
+
+# Insert all articles into MongoDB
+collection.insert_many(mysore_articles)
+collection.insert_many(india_articles)
+collection.insert_many(world_articles)
+collection.insert_many(cricket_articles)
+collection.insert_many(pakistan_articles)
+
+print("Inserted all news articles successfully.")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
