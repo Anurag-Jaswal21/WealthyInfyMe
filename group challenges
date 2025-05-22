@@ -1,0 +1,249 @@
+#app.py
+
+from flask import Flask, render_template, request, redirect, url_for
+from flask_pymongo import PyMongo
+from datetime import datetime
+
+app = Flask(__name__)
+app.config["MONGO_URI"] = "mongodb://localhost:27017/budgettracker"  # Replace with your MongoDB URI
+mongo = PyMongo(app)
+
+@app.route('/')
+def index():
+    challenges = mongo.db.challenges.find()  # Get all challenges
+    challenges_list = []
+
+    # Convert ObjectID to string
+    for challenge in challenges:
+        challenge['_id'] = str(challenge['_id'])  # Convert ObjectID to string
+        challenges_list.append(challenge)
+
+    return render_template('index.html', challenges=challenges_list)
+
+@app.route('/create_challenge', methods=['GET', 'POST'])
+def create_challenge():
+    if request.method == 'POST':
+        name = request.form['name']
+        description = request.form['description']
+        goal = float(request.form['goal'])
+        category = request.form['category']
+        participants = request.form['participants'].split(',')  # comma separated emails
+
+        challenge = {
+            'name': name,
+            'description': description,
+            'goal': goal,
+            'category': category,
+            'participants': participants,
+            'progress': 0,
+            'created_at': datetime.now()
+        }
+
+        mongo.db.challenges.insert_one(challenge)
+        return redirect(url_for('index'))
+
+    return render_template('create_challenge.html')
+
+@app.route('/challenge/<challenge_id>')
+def challenge(challenge_id):
+    challenge = mongo.db.challenges.find_one({'_id': challenge_id})
+    return render_template('challenge.html', challenge=challenge)
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
+
+-----------------------------------------------------------------
+
+challenge.html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ challenge['name'] }} | BudgetTracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container py-5">
+    <h1 class="h3 text-primary">{{ challenge['name'] }}</h1>
+    <p class="text-muted mb-3">{{ challenge['description'] }}</p>
+    <div class="my-3">
+        <div class="d-flex justify-content-between small">
+            <span>${{ challenge['progress'] }}</span>
+            <span>${{ challenge['goal'] }}</span>
+        </div>
+        <div class="progress" style="height: 6px;">
+            <div class="progress-bar bg-success" role="progressbar" style="width: {{ (challenge['progress'] / challenge['goal']) * 100 }}%;"></div>
+        </div>
+        <div class="text-end small text-muted mt-1">{{ (challenge['progress'] / challenge['goal']) * 100 }}% complete</div>
+    </div>
+    <h3 class="h5">Participants</h3>
+    <ul>
+        {% for participant in challenge['participants'] %}
+        <li>{{ participant }}</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+
+------------------------------------------------------------------------
+
+create_challenge.html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Challenge | BudgetTracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container py-5">
+    <h1 class="h3 text-primary">Create New Challenge</h1>
+    <form action="{{ url_for('create_challenge') }}" method="POST">
+        <div class="mb-3">
+            <label for="name" class="form-label">Challenge Name</label>
+            <input type="text" class="form-control" id="name" name="name" required>
+        </div>
+        <div class="mb-3">
+            <label for="description" class="form-label">Description</label>
+            <input type="text" class="form-control" id="description" name="description" required>
+        </div>
+        <div class="mb-3">
+            <label for="goal" class="form-label">Goal Amount</label>
+            <input type="number" class="form-control" id="goal" name="goal" required>
+        </div>
+        <div class="mb-3">
+            <label for="category" class="form-label">Category</label>
+            <input type="text" class="form-control" id="category" name="category" required>
+        </div>
+        <div class="mb-3">
+            <label for="participants" class="form-label">Participants (Comma Separated Emails)</label>
+            <input type="text" class="form-control" id="participants" name="participants" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Create Challenge</button>
+    </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+----------------------------------------------------------------------------------------
+
+index.html
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Group Challenges | BudgetTracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .card-hover:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.2s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+<div class="container py-5">
+    <h1 class="h3 text-primary">Group Savings Challenges</h1>
+    <p class="text-muted mb-3">Save more by challenging friends and family to reach financial goals together.</p>
+    <a href="{{ url_for('create_challenge') }}" class="btn btn-primary mb-4">
+        <i class="bi bi-plus-circle me-2"></i> Create New Challenge
+    </a>
+
+    <!-- All Challenges -->
+    <h2 class="h5 mb-3">All Challenges</h2>
+    <div class="row g-4">
+        {% for challenge in challenges %}
+        <div class="col-md-4">
+            <div class="card card-hover">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <h5 class="card-title">{{ challenge['name'] }}</h5>
+                        <span class="badge bg-light text-primary">{{ challenge['category'] }}</span>
+                    </div>
+                    <p class="card-text small text-muted">{{ challenge['description'] }}</p>
+                    <div class="my-3">
+                        <div class="d-flex justify-content-between small">
+                            <span>${{ challenge['progress'] }}</span>
+                            <span>${{ challenge['goal'] }}</span>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: {{ (challenge['progress'] / challenge['goal']) * 100 }}%;"></div>
+                        </div>
+                        <div class="text-end small text-muted mt-1">{{ (challenge['progress'] / challenge['goal']) * 100 }}% complete</div>
+                    </div>
+                    <a href="{{ url_for('challenge', challenge_id=challenge['_id']) }}" class="btn btn-primary btn-sm">View Details</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
