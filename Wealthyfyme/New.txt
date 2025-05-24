@@ -1,876 +1,142 @@
-from flask import Flask, render_template, redirect, url_for, request, session, flash
-from forms import LoginForm, RegistrationForm, ForgotPasswordForm
-from config import Config
-from db import mysql
-from services import check_user, registration
-from pymongo import MongoClient
-from datetime import datetime, timedelta
-from flask_mysqldb import MySQL
-from bson.objectid import ObjectId
-import re
-from twilio.rest import Client
-import random
-import os
-
-
-
-app = Flask(__name__)
-app.config.from_object(Config)
-app.secret_key = '1234 this is my secret key'
-
-mysql = MySQL(app)
-
-# MongoDB setup
-mongo_client = MongoClient('mongodb://localhost:27017/')
-mongo_db = mongo_client["wealthyfyme"]
-mongo_transactions = mongo_db["transactions"]
-mongo_budgets = mongo_db["budgets"]
-mongo_challenges=mongo_db["group_challenges"]
-
-CATEGORIES = ["Salary","Food", "Housing", "Transportation", "Entertainment", "Shopping", "Healthcare", "Education","Others"]
-
-
-@app.route('/')
-def home():
-    return render_template("index.html")
-
-
-# Twilio config
-TWILIO_ACCOUNT_SID = 'AC3dd54a862fc10fcf2284f9508cb56a24'
-TWILIO_AUTH_TOKEN = '828f881eebb03e3da08afb0530ec07af'
-TWILIO_PHONE_NUMBER = '+16814413892'
-
-client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-
-@app.route('/login', methods=["GET", "POST"])
-def login():
-    msg = session.get('msg', '')
-    form = LoginForm()
-
-    if form.validate_on_submit():
-        email = form.email.data
-        password = form.password.data
-        res = check_user(email, password)
-
-        if res:
-            session['user_email'] = email  # Save user for session scope
-            return redirect(url_for('dashboard_home'))
-        else:
-            session['msg'] = "unsuccessful"
-            return redirect(url_for('login'))
-
-    session.pop('msg', None)
-    return render_template("login.html", form=form, msg=msg)
-
-
-
-
-@app.route('/forgot_password', methods=['GET', 'POST'])
-def forgot_password():
-    form = ForgotPasswordForm()
-    msg = None
-    if form.validate_on_submit():
-        email = form.email.data
-        user = get_user_by_email(email)
-        if user:
-            otp = random.randint(100000, 999999)
-            try:
-                print(f"Sending OTP to {user['phone']}")
-                send_otp_sms(user['phone'], otp)
-                session['reset_email'] = user['email']
-                session['reset_otp'] = str(otp)
-                msg = 'sent'
-                return redirect(url_for('verify_otp'))
-            except Exception as e:
-                print("Failed to send OTP:", e)
-                msg = 'error'
-        else:
-            msg = 'not_found'
-    return render_template('forgot_password.html', form=form, msg=msg)
-
-
-def get_user_by_email(email):
-    cur = mysql.connection.cursor()
-    cur.execute("SELECT * FROM login WHERE email = %s", (email,))
-    user = cur.fetchone()
-    cur.close()
-    if user:
-        user['phone'] = '+917876134701'
-    return user
-
-
-
-def send_otp_sms(phone_number, otp):
-    message = client.messages.create(
-        body=f'Your OTP for password reset is: {otp}',
-        from_=TWILIO_PHONE_NUMBER,
-        to=phone_number
-    )
-    return message.sid
-
-
-@app.route('/verify_otp', methods=['GET', 'POST'])
-def verify_otp():
-    if request.method == 'POST':
-        user_otp = request.form.get('otp')
-        session_otp = session.get('reset_otp')
-
-        if user_otp == session_otp:
-            # OTP matched — redirect to password reset page
-            return redirect(url_for('reset_password'))
-        else:
-            flash("Invalid OTP. Please try again.")
-            return redirect(url_for('verify_otp'))
-
-    return render_template('verify_otp.html')
-
-
-
-
-@app.route('/reset_password', methods=['GET', 'POST'])
-def reset_password():
-    if 'reset_email' not in session:
-        flash("Session expired. Please start password reset again.")
-        return redirect(url_for('forgot_password'))
-
-    if request.method == 'POST':
-        new_password = request.form.get('new_password')
-        confirm_password = request.form.get('confirm_password')
-        email = session['reset_email']
-
-        if not new_password or not confirm_password:
-            flash("Please fill in both password fields.")
-            return redirect(url_for('reset_password'))
-
-        if new_password != confirm_password:
-            flash("Passwords do not match. Please try again.")
-            return redirect(url_for('reset_password'))
-
-        cur = mysql.connection.cursor()
-        cur.execute("UPDATE login SET password = %s WHERE email = %s", (new_password, email))
-        mysql.connection.commit()
-        cur.close()
-
-        session.pop('reset_email', None)
-        session.pop('reset_otp', None)
-
-        flash("Password reset successfully. Please log in.")
-        return redirect(url_for('login'))
-
-    return render_template('reset_password.html')
-
-
-
-
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('login'))
-
-
-
-@app.route('/register', methods=["GET", "POST"])
-def register():
-    form = RegistrationForm()
-
-    if request.method == "POST":
-        if form.validate_on_submit():
-            name = form.name.data
-            email = form.email.data
-            password = form.password.data
-            confirm_password = form.confirm_password.data
-
-            res = registration(name, email, password, confirm_password)
-            if res:
-                return redirect(url_for('login'))
-            else:
-                session['msg'] = "Please, Enter a Valid Email !!!"
-                return redirect(url_for('register'))
-        else:
-            # Store errors in session and redirect
-            session['form_errors'] = form.errors
-            return redirect(url_for('register'))
-
-    # GET request, render form with any stored errors or msg
-    msg = session.pop('msg', '')
-    form_errors = session.pop('form_errors', {})
-    return render_template("registration.html", form=form, msg=msg, form_errors=form_errors)
-
-
-
-@app.route('/dashboard_home')
-def dashboard_home():
-    if 'user_email' not in session:
-        return redirect(url_for('login'))
-    
-    email = session['user_email']
-    cursor = mysql.connection.cursor()
-    cursor.execute("SELECT name FROM login WHERE email = %s", (email,))
-    user_row = cursor.fetchone()
-    user_name = user_row['name'] if user_row else 'User'
-
-   
-    current_date = datetime(2025, 5, 1)
-    start_date = current_date.replace(day=1)
-    end_date = (start_date + timedelta(days=31)).replace(day=1)
-
-    monthly_income = 0
-    monthly_expenses = 0
-    total_balance = 0
-    category_expenses = {}
-
-    transactions = mongo_transactions.find({
-        'email': email,
-        'date': {'$gte': start_date.strftime('%Y-%m-%d'), '$lt': end_date.strftime('%Y-%m-%d')}
-    })
-
-    for txn in transactions:
-        txn_type = txn.get('type', '').lower()
-        amount = txn.get('amount', 0)
-        if txn_type == 'income':
-            monthly_income += amount
-        elif txn_type == 'expense':
-            monthly_expenses += amount
-            category = txn.get('category', 'Uncategorized')
-            category_expenses[category] = category_expenses.get(category, 0) + amount
-
-    total_balance = monthly_income - monthly_expenses
-    sorted_categories = sorted([(cat, abs(amt)) for cat, amt in category_expenses.items()], key=lambda x: x[1], reverse=True)
-
-    monthly_summary = []
-    for i in range(6, 0, -1):
-        month_start = (current_date - timedelta(days=30 * i)).replace(day=1)
-        month_end = (month_start + timedelta(days=31)).replace(day=1)
-        month_txns = mongo_transactions.find({
-            'email': email,
-            'date': {'$gte': month_start.strftime('%Y-%m-%d'), '$lt': month_end.strftime('%Y-%m-%d')}
-        })
-
-        month_income, month_expenses = 0, 0
-        for txn in month_txns:
-            amount = txn.get('amount', 0)
-            if txn.get('type', '').lower() == 'income':
-                month_income += amount
-            else:
-                month_expenses += amount
-
-        monthly_summary.append({
-            'month': month_start.strftime('%b %Y'),
-            'income': month_income,
-            'expenses': abs(month_expenses),
-            'savings': month_income - abs(month_expenses)
-        })
-
-    recent_transactions = mongo_transactions.find({'email': email}).sort('date', -1).limit(5)
-    formatted_recent = [{
-        'date': datetime.strptime(txn.get('date', ''), '%Y-%m-%d'),
-        'category': txn.get('category', ''),
-        'description': txn.get('description', ''),
-        'amount': txn.get('amount', 0),
-        'type': txn.get('type', '')
-    } for txn in recent_transactions]
-
-    return render_template("dashboard_home.html",
-                           total_balance=total_balance,
-                           monthly_income=monthly_income,
-                           monthly_expenses=monthly_expenses,
-                           recent_transactions=formatted_recent,
-                           sorted_categories=sorted_categories,
-                           monthly_data={
-                               'labels': [m['month'] for m in monthly_summary],
-                               'income': [m['income'] for m in monthly_summary],
-                               'expenses': [m['expenses'] for m in monthly_summary],
-                               'savings': [m['savings'] for m in monthly_summary]
-                           },
-                           category_data={
-                               'labels': [cat[0] for cat in sorted_categories],
-                               'data': [cat[1] for cat in sorted_categories]
-                           },user_name=user_name)
-
-
-@app.route('/transactions', methods=["GET", "POST"])
-def transactions():
-    if 'user_email' not in session:
-        return redirect(url_for('login'))
-
-    email = session['user_email']
-
-    if request.method == "POST":
-        txn = {
-            "amount": float(request.form["amount"]),
-            "category": request.form["category"],
-            "description": request.form["description"],
-            "date": request.form["date"],
-            "type": request.form.get("type", "expense"),
-            "email": email
-        }
-        mongo_transactions.insert_one(txn)
-        return redirect(url_for('transactions'))
-
-    transactions = mongo_transactions.find({'email': email}).sort("date", -1)
-    formatted_txns = [{
-    "id": str(txn.get("_id")),
-    "date": datetime.strptime(txn.get("date", ""), "%Y-%m-%d").date(),
-    "category": txn.get("category", "No Category"),
-    "description": txn.get("description", "No description"),
-    "amount": txn.get("amount", 0.0),
-    "type": txn.get("type", "expense")
-    } for txn in transactions]
-
-
-    return render_template("transactions.html", transactions=formatted_txns,CATEGORIES=CATEGORIES)
-
-
-@app.route('/transactions/delete/<txn_id>')
-def delete_transaction(txn_id):
-    if 'user_email' not in session:
-        return redirect(url_for('login'))
-
-    mongo_transactions.delete_one({'_id': ObjectId(txn_id)})
-    return redirect(url_for('transactions'))
-
-
-
-@app.route('/transactions/edit/<txn_id>', methods=['GET', 'POST'])
-def edit_transaction(txn_id):
-    if 'user_email' not in session:
-        return redirect(url_for('login'))
-
-    txn = mongo_transactions.find_one({'_id': ObjectId(txn_id)})
-    if not txn:
-        return redirect(url_for('transactions'))
-
-    if request.method == 'POST':
-        updated_txn = {
-            "amount": float(request.form["amount"]),
-            "category": request.form["category"],
-            "description": request.form["description"],
-            "date": request.form["date"],
-            "type": request.form["type"],
-            "email": txn['email']  # Retain the original user
-        }
-        mongo_transactions.update_one({'_id': ObjectId(txn_id)}, {'$set': updated_txn})
-        return redirect(url_for('transactions'))
-
-    return render_template("edit_transaction.html", txn=txn, CATEGORIES=CATEGORIES)
-
-
-
-
-@app.route('/budgets')
-def budgets():
-    if 'user_email' not in session:
-        return redirect(url_for('login'))
-
-    email = session['user_email']
-    budgets_data = list(mongo_budgets.find({'email': email}))
-
-    pipeline = [
-        {"$match": {"email": email, "type": "expense"}},
-        {"$group": {"_id": "$category", "total_spent": {"$sum": "$amount"}}}
-    ]
-    expense_sums = list(mongo_transactions.aggregate(pipeline))
-    spent_map = {e['_id']: e['total_spent'] for e in expense_sums}
-
-    for b in budgets_data:
-        cat = b['category']
-        limit = b.get('limit', 0)
-        spent = spent_map.get(cat, 0)
-        b['spent'] = spent
-        b['progress'] = round((spent / limit) * 100, 2) if limit > 0 else 0
-
-    return render_template('budgets.html', budgets=budgets_data)
-
-
-@app.route('/add-budget', methods=['POST'])
-def add_budget():
-    if 'user_email' not in session:
-        return redirect(url_for('login'))
-
-    email = session['user_email']
-    category = request.form.get('category')
-    limit = float(request.form.get('limit'))
-
-    if not category or limit <= 0:
-        flash("Invalid budget input!", "danger")
-        return redirect(url_for('budgets'))
-
-    existing = mongo_budgets.find_one({"email": email, "category": category})
-    if existing:
-        flash(f"Budget for '{category}' already exists.", "warning")
-        return redirect(url_for('budgets'))
-
-    mongo_budgets.insert_one({
-        "category": category,
-        "limit": limit,
-        "email": email
-    })
-
-    flash(f"Budget for '{category}' added!", "success")
-    return redirect(url_for('budgets'))
-
-
-@app.route('/edit-budget/<budget_id>', methods=['POST'])
-def edit_budget(budget_id):
-    category = request.form.get('category')
-    limit = float(request.form.get('limit'))
-    mongo_budgets.update_one(
-        {"_id": ObjectId(budget_id)},
-        {"$set": {"category": category, "limit": limit}}
-    )
-    flash("Budget updated.", "success")
-    return redirect(url_for('budgets'))
-
-
-@app.route('/delete-budget/<budget_id>', methods=['POST'])
-def delete_budget(budget_id):
-    mongo_budgets.delete_one({"_id": ObjectId(budget_id)})
-    flash("Budget deleted.", "info")
-    return redirect(url_for('budgets'))
-
-
-
-
-@app.route('/peer_comparison')
-def peer_comparison():
-    # Get distinct user emails from transactions
-    user_emails = mongo_transactions.distinct("email")
-
-    user_savings = []
-
-    for email in user_emails:
-        # Get income total
-        income_result = mongo_transactions.aggregate([
-            {"$match": {"email": email, "type": "income"}},
-            {"$group": {"_id": None, "total_income": {"$sum": "$amount"}}}
-        ])
-        income = next(income_result, {}).get("total_income", 0)
-
-        # Get expense total
-        expense_result = mongo_transactions.aggregate([
-            {"$match": {"email": email, "type": "expense"}},
-            {"$group": {"_id": None, "total_expense": {"$sum": "$amount"}}}
-        ])
-        expense = next(expense_result, {}).get("total_expense", 0)
-
-        saved_amount = income - expense
-        saving_percentage = (saved_amount / income * 100) if income > 0 else 0
-
-        # Optionally fetch user's name
-        user_info = mongo_db["users"].find_one({"email": email})
-        raw_name = user_info.get("name") if user_info else email.split("@")[0]
-        name = re.sub(r'\d+', '', raw_name)
-
-        user_savings.append({
-            "name": name,
-            "email": email,
-            "saved_amount": saved_amount,
-            "saving_percentage": saving_percentage
-        })
-
-    # Sort users by saving percentage descending
-    sorted_users = sorted(user_savings, key=lambda x: x["saving_percentage"], reverse=True)
-
-    top3 = sorted_users[:3]
-    next5 = sorted_users[3:8]
-
-    return render_template("peer_comparison.html", top3=top3, next5=next5)
-
-
-
-
-@app.route('/alerts')
-def alerts():
-    if 'user_email' not in session:
-        return redirect(url_for('login'))
-
-    email = session['user_email']
-    budgets_data = list(mongo_budgets.find({'email': email}))
-
-    pipeline = [
-        {"$match": {"email": email, "type": "expense"}},
-        {"$group": {"_id": "$category", "total_spent": {"$sum": "$amount"}}}
-    ]
-    expense_sums = list(mongo_transactions.aggregate(pipeline))
-    spent_map = {e['_id']: e['total_spent'] for e in expense_sums}
-
-    alerts = []
-    for b in budgets_data:
-        cat = b['category']
-        limit = b.get('limit', 0)
-        spent = spent_map.get(cat, 0)
-        percentage = (spent / limit) * 100 if limit > 0 else 0
-
-        if percentage >= 90:
-            alerts.append({
-                'category': cat,
-                'limit': limit,
-                'spent': spent,
-                'percentage': round(percentage, 2)
-            })
-
-    # Store alert count in session for use in sidebar
-    session['alert_count'] = len(alerts)
-
-    return render_template('alerts.html', alerts=alerts)
-
-@app.route('/group_challenges')
-def group_challenges():
-    if 'user_email' not in session:
-        return redirect(url_for('login'))
-
-    email = session['user_email']
-    today = datetime.now()
-    challenges = list(mongo_challenges.find({'participants': email}).sort('end_date', 1))
-
-    active_challenges = []
-    past_challenges = []
-
-    for challenge in challenges:
-        participants = challenge['participants']
-        challenge['user_progress'] = get_user_progress(email, challenge)
-        leaderboard = []
-
-        for participant in participants:
-            progress = get_user_progress(participant, challenge)
-            leaderboard.append({'email': participant, 'progress': progress})
-
-        leaderboard.sort(
-            key=lambda x: x['progress'],
-            reverse=(challenge['type'] == 'savings')  # savings = more is better, spending = less is better
-        )
-        challenge['leaderboard'] = leaderboard
-        challenge['leader'] = leaderboard[0]['email'] if leaderboard else None
-
-        if challenge['end_date'] >= today.strftime('%Y-%m-%d'):
-            active_challenges.append(challenge)
-        else:
-            challenge['user_result'] = 'won' if leaderboard and leaderboard[0]['email'] == email else 'lost'
-            past_challenges.append(challenge)
-
-    return render_template("group_challenges.html",
-                           active_challenges=active_challenges,
-                           past_challenges=past_challenges,
-                           today=today)
-
-
-def get_user_progress(email, challenge):
-    transactions = mongo_transactions.find({
-        'user_email': email,
-        'date': {'$gte': challenge['start_date'], '$lte': challenge['end_date']}
-    })
-    total = sum(txn['amount'] for txn in transactions if txn['type'] in ['income', 'expense'])
-
-    if challenge['type'] == 'savings':
-        return sum(txn['amount'] for txn in transactions if txn['type'] == 'income') - \
-               sum(txn['amount'] for txn in transactions if txn['type'] == 'expense')
-    elif challenge['type'] == 'spending':
-        return sum(txn['amount'] for txn in transactions if txn['type'] == 'expense')
-    return 0
-
-
-
-@app.route('/create_challenge', methods=['GET', 'POST'])
-def create_challenge():
-    if request.method == 'POST':
-        # Get form data
-        name = request.form['name']
-        type_ = request.form['type']
-        start_date = request.form['start_date']
-        end_date = request.form['end_date']
-        participants = request.form.getlist('participants')  # list of emails
-
-        mongo_challenges.insert_one({
-            'name': name,
-            'type': type_,
-            'start_date': start_date,
-            'end_date': end_date,
-            'participants': participants,
-        })
-
-        return redirect(url_for('group_challenges'))
-
-    return render_template('create_challenge.html')  # if showing the form page
-
-
-
-
-
-
-if __name__ == '__main__':
-    app.run(debug=True)
-
-
--------------------------------------------------------------------
-
-dashboard_home.html
-
-
-<title>Dashboard</title>
-<style>
-  .card:hover {
-    transform: scale(1.03);
-    background-color: #f8f9fa;
-    transition: transform 0.3s ease, background-color 0.5s ease;
-  }
-
-  .summary-card {
-    transition: transform 0.3s ease, background-color 0.3s ease;
-    border-left: 4px solid transparent;
-  }
-
-  .summary-card:hover {
-    transform: scale(1.03);
-    transition: transform 0.3s ease, background-color 0.5s ease;
-  }
-
-  .balance-card {
-    border-left-color: #28a745;
-  }
-  .balance-card:hover {
-    background-color: rgba(40, 167, 70, 0.2);
-  }
-
-  .income-card {
-    border-left-color: #007bff;
-  }
-  .income-card:hover {
-    background-color: rgba(0, 123, 255, 0.197);
-  }
-
-  .expense-card {
-    border-left-color: #dc3545;
-  }
-  .expense-card:hover {
-    background-color: rgba(244, 12, 35, 0.221);
-  }
-
-  .logout:hover {
-    background-color: rgb(137, 25, 25);
-    color: white !important;
-  }
-
-  .chart-container {
-    position: relative;
-    height: 300px;
-  }
-</style>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Wealthyfyme</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Ionicons CDN -->
+  <script type="module" src="https://unpkg.com/ionicons@7.2.1/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.2.1/dist/ionicons/ionicons.js"></script>
+
+  <style>
+    @media (min-width: 992px) {
+      body {
+        display: flex;
+      }
+
+      .sidebar {
+        width: 250px;
+        height: 100vh;
+        background-color: #28a745;
+        position: fixed;
+        top: 0;
+        left: 0;
+        padding: 1rem;
+        z-index: 1030;
+      }
+
+      .main-content {
+        margin-left: 250px;
+        padding: 2rem;
+        width: calc(100% - 250px);
+      }
+    }
+
+    .nav-link.active {
+      font-weight: 600;
+      background-color: #e9ecef;
+      border-radius: 0.375rem;
+    }
+
+    .nav-link ion-icon {
+      font-size: 20px;
+    }
+
+    .sidebar-footer {
+      font-size: 0.875rem;
+    }
+
+    .nav-link:hover {
+      background-color: #24c089;
+      color: #000;
+      border-radius: 0.375rem;
+    }
+
+    .nav-link.active {
+      background-color: #24c089;
+      color: #000;
+    }
+
+    @media (max-width: 991px) {
+      .main-content {
+        padding: 1rem;
+      }
+    }
+  </style>
 </head>
-
 <body>
-{% extends "dashboard.html" %}
+  <!-- Toggle Button for Mobile -->
+  <button class="btn btn-success d-lg-none m-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas">
+    <ion-icon name="menu-outline"></ion-icon>
+  </button>
 
-{% block title %}Dashboard - Wealthyfyme{% endblock %}
+  <!-- Sidebar (Offcanvas on mobile, fixed on desktop) -->
+  <div class="offcanvas-lg offcanvas-start sidebar bg-light border-end" tabindex="-1" id="sidebarOffcanvas">
+    <div class="offcanvas-header d-lg-none">
+      <h5 class="offcanvas-title">Wealthyfyme</h5>
+      <button class="btn btn-success d-lg-none m-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas">
+  <ion-icon name="arrow-back-outline"></ion-icon>
+</button>
+    </div>
 
-{% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h1 class="mb-4 text-success">Welcome, {{ user_name }}!</h1>
-  <a class="logout text-danger" href="{{ url_for('logout') }}">
-    <ion-icon name="log-out-outline"></ion-icon>
-    Logout
-  </a>
-</div>
+    <div class="offcanvas-body d-flex flex-column">
+      <div class="d-flex align-items-center mb-4 d-none d-lg-flex">
+        <ion-icon name="albums-outline" size="large" class="me-2"></ion-icon>
+        <span class="fs-5 fw-bold">Wealthyfyme</span>
+      </div>
 
-<!-- Cards Section -->
-<div class="row mb-4">
-  <!-- Total Balance -->
-  <div class="col-md-4">
-    <div class="card border-1 shadow-sm h-100 summary-card balance-card">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <h6 class="card-title text-muted mb-0">Total Balance</h6>
-          <ion-icon name="wallet-outline" class="text-success"></ion-icon>
-        </div>
-        <h3 class="card-text">₹{{ "{:,.2f}".format(total_balance) }}</h3>
-        <p class="text-success small mb-0"><ion-icon name="trending-up-outline"></ion-icon> {{ " 🎉 Bravo! Great saving!" if total_balance >= 0 else "Watch your spending!" }}</p>
+      
+
+
+
+      <nav class="nav flex-column">
+        <a href="{{ url_for('dashboard_home') }}" class="nav-link d-flex align-items-center text-dark mb-2 {% if request.path == '/dashboard_home' %}active{% endif %}">
+          <ion-icon name="home-outline" class="me-2"></ion-icon> Dashboard
+        </a>
+
+        <a href="{{ url_for('transactions') }}" class="nav-link d-flex align-items-center text-dark mb-2 {% if request.path == '/transactions' %}active{% endif %}">
+          <ion-icon name="receipt-outline" class="me-2"></ion-icon> Transactions
+        </a>
+
+        <a href="{{ url_for('budgets') }}" class="nav-link d-flex align-items-center text-dark mb-2 {% if request.path == '/budgets' %}active{% endif %}">
+          <ion-icon name="rocket-outline" class="me-2"></ion-icon> Financial Goals
+        </a>
+
+        <a href="{{ url_for('peer_comparison') }}" class="nav-link d-flex align-items-center text-dark mb-2 {% if request.path == '/peer_comparison' %}active{% endif %}">
+          <ion-icon name="people-outline" class="me-2"></ion-icon> Peer Comparison
+        </a>
+
+        <a href="{{ url_for('group_challenges') }}" class="nav-link d-flex align-items-center text-dark mb-2 {% if request.path == '/' %}active{% endif %}">
+          <ion-icon name="trophy-outline" class="me-2"></ion-icon> Group Challenges
+        </a>
+        
+
+        <a href="{{ url_for('alerts') }}" class="nav-link d-flex align-items-center text-dark mb-2 {% if request.path == '/alerts' %}active{% endif %}">
+          <ion-icon name="notifications-outline" class="me-2"></ion-icon> Alerts
+          {% if session.alert_count and session.alert_count > 0 %}
+              <span class="ms-2 text-danger fw-bold" style="font-size: 18px;">&#33;</span>
+          {% endif %}
+        </a>
+      </nav>
+
+      <div class="mt-auto sidebar-footer text-muted pt-3 border-top">
+        © 2025 Wealthyfyme
       </div>
     </div>
   </div>
 
-  <!-- Monthly Income -->
-  <div class="col-md-4">
-    <div class="card border-1 shadow-sm h-100 summary-card income-card">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <h6 class="card-title text-muted mb-0">Monthly Income</h6>
-          <ion-icon name="arrow-down-circle-outline" class="text-primary"></ion-icon>
-        </div>
-        <h3 class="card-text">₹{{ "{:,.2f}".format(monthly_income) }}</h3>
-        <p class="text-primary small mb-0"><ion-icon name="trending-up-outline"></ion-icon> {{ "Good income!" if monthly_income > 0 else "No income recorded" }}</p>
-      </div>
-    </div>
+  <!-- Main Content -->
+  <div class="main-content">
+    {% block content %}{% endblock %}
   </div>
 
-  <!-- Monthly Expenses -->
-  <div class="col-md-4">
-    <div class="card border-1 shadow-sm h-100 summary-card expense-card">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <h6 class="card-title text-muted mb-0">Monthly Expenses</h6>
-          <ion-icon name="arrow-up-circle-outline" class="text-danger"></ion-icon>
-        </div>
-        <h3 class="card-text">₹{{ "{:,.2f}".format(monthly_expenses) }}</h3>
-        <p class="text-danger small mb-0"><ion-icon name="trending-down-outline"></ion-icon> {{ "High expenses!" if monthly_expenses > (monthly_income * 0.7) else "Good control!" }}</p>
-      </div>
-    </div>
-  </div>
-</div>
+  <!-- Bootstrap 5 JS -->
+  <!-- Bootstrap 5 JS Bundle (includes Popper) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- Charts Section -->
-<div class="row">
-  <!-- Bar Chart -->
-  <div class="col-lg-8">
-    <div class="card border-1 shadow-sm mb-4">
-      <div class="card-body">
-        <h5 class="card-title">6-Month Financial Summary</h5>
-        <div class="chart-container">
-          <canvas id="monthlyChart"></canvas>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Expenses by Category -->
-  <div class="col-lg-4">
-      <div class="card border-1 shadow-sm mb-4">
-        <div class="card-body">
-          <h5 class="card-title">Expenses by Category</h5>
-          <div class="mt-3">
-            <ul class="list-group">
-              {% for category, amount in sorted_categories %}
-                <li class="list-group-item d-flex justify-content-between">
-                  <span>{{ category }}</span>
-                  <span>₹{{ "{:,.2f}".format(amount) }}</span>
-                </li>
-              {% endfor %}
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-<!-- Recent Transactions -->
-<div class="card border-1 shadow-sm">
-  <div class="card-body">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h5 class="card-title mb-0">Recent Transactions</h5>
-      <a href="{{ url_for('transactions') }}" class="btn btn-sm btn-outline-success">View All</a>
-    </div>
-    <div class="table-responsive">
-      <table class="table table-hover">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Description</th>
-            <th>Category</th>
-            <th class="text-end">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for transaction in recent_transactions %}
-            <tr>
-              <td>{{ transaction.date.strftime('%b %d') }}</td>
-              <td>{{ transaction.description }}</td>
-              <td><span class="badge bg-light text-dark">{{ transaction.category }}</span></td>
-              <td class="text-end {% if transaction.type == 'expense' %}text-danger{% elif transaction.type == 'income' %}text-success{% endif %}">
-                ₹{{ "{:,.2f}".format(transaction.amount) }}
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    // Monthly Summary Chart (Bar Chart)
-    const monthlyCtx = document.getElementById('monthlyChart');
-    if (monthlyCtx) {
-      new Chart(monthlyCtx, {
-        type: 'bar',
-        data: {
-          labels: JSON.parse('{{ monthly_data.labels|tojson|safe }}'),
-          datasets: [
-            {
-              label: 'Income',
-              data: JSON.parse('{{ monthly_data.income|tojson|safe }}'),
-              backgroundColor: 'rgba(40, 167, 69, 0.7)'
-            },
-            {
-              label: 'Expenses',
-              data: JSON.parse('{{ monthly_data.expenses|tojson|safe }}'),
-              backgroundColor: 'rgba(220, 53, 69, 0.7)'
-            },
-            {
-              label: 'Savings',
-              data: JSON.parse('{{ monthly_data.savings|tojson|safe }}'),
-              backgroundColor: 'rgba(23, 162, 184, 0.7)'
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  return context.dataset.label + ': ₹' + context.raw.toLocaleString('en-IN');
-                }
-              }
-            }
-          },
-          scales: {
-            y: {
-              ticks: {
-                callback: function(value) {
-                  return '₹' + value.toLocaleString('en-IN');
-                }
-              }
-            }
-          }
-        }
-      });
-    }
-
-    // Category Chart (Doughnut Chart)
-    const categoryCtx = document.getElementById('categoryChart');
-    if (categoryCtx) {
-      new Chart(categoryCtx, {
-        type: 'doughnut',
-        data: {
-          labels: JSON.parse('{{ category_data.labels|tojson|safe }}'),
-          datasets: [{
-            data: JSON.parse('{{ category_data.data|tojson|safe }}'),
-            backgroundColor: [
-              '#dc3545', '#fd7e14', '#ffc107', '#28a745', '#20c997',
-              '#17a2b8', '#007bff', '#6610f2', '#6c757d', '#e83e8c'
-            ]
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  const label = context.label || '';
-                  const value = context.raw || 0;
-                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                  const percentage = Math.round((value / total) * 100);
-                  return `${label}: ₹${value.toLocaleString('en-IN')} (${percentage}%)`;
-                }
-              }
-            }
-          }
-        }
-      });
-    }
-  });
-</script>
-{% endblock %}
 </body>
 </html>
