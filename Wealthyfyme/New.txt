@@ -1,1 +1,12 @@
-7299e981e7d7a6f36befe7ac982e80c3
+import requests
+r = requests.get("https://api.twilio.com")
+print(r.status_code)
+
+import requests
+
+proxies = {
+    "http": "http://your.proxy.address:port",
+    "https": "http://your.proxy.address:port"
+}
+
+requests.get("https://api.twilio.com", proxies=proxies)
