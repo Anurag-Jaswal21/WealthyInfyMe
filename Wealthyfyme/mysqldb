@@ -28,20 +28,32 @@ select * from login;
 select * from registration;
 
 
+
+alter table login add column name varchar(50) not null after S_NO;
+
+
+show triggers;
+
+drop trigger after_registration_insert;
+
+
+
 DELIMITER //
 
 CREATE TRIGGER after_registration_insert
 AFTER INSERT ON registration
 FOR EACH ROW
 BEGIN
-    INSERT INTO login (email, password) 
-    VALUES (NEW.email, NEW.password);
-END$$
+    INSERT INTO login (name, email, password) 
+    VALUES (NEW.name, NEW.email, NEW.password);
+END;
 //
 
 DELIMITER ;
 
+update  login set name = "Anurag Jaswal" where S_NO=3;
 
+select * from login;
 
 
 
